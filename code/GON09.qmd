@@ -1,0 +1,341 @@
+```{r setup, include = F}
+source("code/00_master_code.R")
+```
+# Analisi del primo elefante (id: GON09)
+
+## Analisi esplorativa dei dati 
+
+Gli istogrammi rappresentano le distribuzioni di step length, turn angle e direction nelle tre stagioni climatiche 
+
+```{r visualizzazione}
+# data 
+GON09_fnl <- read_csv(paste0(dir_data, "/GON09_fnl.csv"))
+# step length ----
+ggplot(data = GON09_fnl, aes(x = sl_, y = ..density..)) +
+  geom_histogram(color = "black", fill = NA) +
+  geom_density() +
+  facet_wrap(~ seas) +
+  theme_test() +
+  xlab("Step length [km]") +
+  ylab("Density")
+# turn angle
+ggplot(data = GON09_fnl, aes(x = ta_, y = ..density..)) +
+  geom_histogram(color = "black", fill = NA) +
+  geom_density() +
+  facet_wrap(~ seas) +
+  theme_test() +
+  xlab("Turn angle") +
+  ylab("Density")
+# direction
+ggplot(data = GON09_fnl, aes(x = direction_p, y = ..density..)) +
+  geom_histogram(color = "black", fill = NA) +
+  geom_density() +
+  facet_wrap(~ seas) +
+  theme_test() +
+  xlab("Direction") +
+  ylab("Density")
+```
+
+## Modello di base
+
+Vogliamo verificare se il *turn angle* sia influenzato dalle variabili a disposizione, cioè la distanza dalla riva `distriv`, l'altitudine `elev`, l'indice `ndvi` e la stagione `seas`. 
+
+* La funzione di verosimiglianza è definita assumendo 
+
+$$
+\boldsymbol{\mu} = 2 \cdot \arctan(\mathbf{X} \boldsymbol{\beta}) = 2 \cdot \arctan(\eta_i)
+$$
+
+ dove:
+
+* $\mathbf{X} = (1, \text{distriv}, \text{elev}, \text{ndvi}, \text{seas})$
+* $\boldsymbol{\beta} = (\beta_0, \beta_1, \dots, \beta_k)$
+*  In altri termini, assumiamo per il turn angle (`ta`) il seguente modello: 
+
+$$
+y_i \propto \beta_0 + \beta_1 \cdot \text{distriv}_i + \beta_2 \cdot \text{elev}_i + 
+\beta_3 \cdot \text{ndvi}_i + \beta_4 \cdot \text{seasCD}_i + \beta_5 \cdot \text{seasHD}_i
+$$
+
+*   La variabile `seas` è trattata come fattore con base la stagione "hot dry" (`HD`);
+*   Le covariate sono standardizzate per migliorare l'interpretabilità dei coefficienti stimati. 
+```{r MLE-Von-Mises}
+# funzione di log-verosimiglianza ----
+log.lik.VM <- function(par, data, formula, response){
+  # Dati
+  X <- model.matrix(formula, data = data)
+  y <- data[[response]]
+  
+  # Parametri
+  p <- ncol(X)
+  beta <- par[1:p]
+  kappa <- exp(par[p+1])
+  
+  # Elimina righe con NA
+  valid <- complete.cases(y, X)
+  y <- y[valid]
+  X <- X[valid, , drop = FALSE]
+  
+  # Link function
+  eta <- X %*% beta
+  mu <- 2 * atan(eta)
+  
+  # Log-likelihood function
+  l <- kappa * cos(y - mu) - log(besselI(kappa, nu = 0))
+  return(-sum(l))
+}
+# standardizzo le covariate ---- 
+GON09_fnl <- GON09_fnl %>% 
+  mutate("distriv_std" = scale(GON09_fnl$distriv)[,1],
+         "elev_std" = scale(GON09_fnl$elev)[,1],
+         "ndvi_std" = scale(GON09_fnl$ndvi)[,1])
+# fit ----
+fit_std <- optim(
+  par = c(rep(0,6), log(2)),
+  fn = log.lik.VM, 
+  data = GON09_fnl, 
+  formula = ~ distriv_std + elev_std + ndvi_std + seas, 
+  response = "ta_",
+  hessian = T
+)
+# risultati ----
+#     tabella ----
+tibble(
+  parametri = c("Intercept", "Distance from water", "Elevation", "NDVI Index", "Seas = CD", "Seas = HD", "Kappa"),
+  estimate = c(fit_std$par[1:6], exp(fit_std$par[7])), 
+  se = sqrt(diag(solve(fit_std$hessian))),
+  lower = estimate - qnorm(0.975) * se,
+  upper = estimate + qnorm(0.975) * se,
+  W = estimate / se, 
+  p_value = 2 * (1 - pnorm(abs(W)))
+) %>% 
+  mutate(across(where(is.numeric), ~ round(.x, 4))) %>%
+  kable(
+    col.names = c("Parameter", "Estimate", "Std. Error", "95% CI Lower", "95% CI Upper", "Wald test", "p-value"),
+    align = "lcccc",
+    format = "markdown"
+  )
+#     grafico dei coefficienti ----
+tibble(
+  parameter = factor(c("Intercept", "Distance from water", "Elevation", "NDVI Index",
+                       "Seas = CD", "Seas = HD", "Kappa"),
+                     levels = c("Intercept", "Distance from water", "Elevation", "NDVI Index",
+                                "Seas = CD", "Seas = HD", "Kappa")),
+  estimate = c(fit_std$par[1:6], exp(fit_std$par[7])), 
+  se = sqrt(diag(solve(fit_std$hessian))),
+  lower = estimate - qnorm(0.975) * se,
+  upper = estimate + qnorm(0.975) * se
+) %>%
+  ggplot(aes(estimate, parameter)) +
+  geom_point() +
+  geom_errorbarh(aes(xmin = lower, xmax = upper)) +
+  geom_vline(xintercept = 0, lty = 2, color = "red") +
+  labs(
+    x = "Estimate with conf. intervals"
+  ) +
+  theme_test()
+#       curve di regressione al variare di distriv ----
+expand_grid(
+  distriv_seq = seq(
+    from = -10,
+    to = 10,
+    length.out = 100
+  ),
+  seas = c("HW", "CD", "HD")) %>% 
+  mutate(
+    seasCD = as.numeric(seas == "CD"),
+    seasHD = as.numeric(seas == "HD"),
+    mu = 2 * atan(fit_std$par[1] + distriv_seq * fit_std$par[2] + seasCD * fit_std$par[5] + seasHD * fit_std$par[6])
+  ) %>% 
+  ggplot(aes(x = distriv_seq, y = mu, color = seas)) +
+  geom_line() +
+  labs(
+    x = "Distance from water",
+    y = "Turn angle"
+  ) + 
+  scale_y_continuous(limits = c(-pi, pi)) +
+  theme_test()
+```
+
+### Analisi dei residui
+
+I residui ($res = y^{oss} - \hat{y}$) sono sempre compresi in $-\pi$ a $+\pi$, cioè circa tra $-3.14$ e $+3.14 assumono i seguenti valori: 
+
+- $> 0$ se $y^{oss} > \hat{y}$ cioè quando gira più a sinistra (senso antiorario) rispetto al previsto
+- $< 0$ se $y^{oss} < \hat{y}$ cioè quando gira più a destra (senso orario) rispetto al previsto
+
+Si vuole verificare se i residui al tempo $t$ siano correlati con i residui al tempo $t-1, \dots, t - n$ 
+
+- Trattandosi di dati angolari il coefficiente di correlazione è definito come [see @fisher_statistical_2000]: 
+ 
+$$
+ \rho_c(\alpha, \beta) = \frac{E\{ sin(\alpha - \mu) sin(\beta - \nu) \}}{\sqrt{\text{Var}(sin(\alpha - \mu)) \text{Var}(sin(\beta - \nu)) }}
+$$
+
+Un problema che si incontra con questo dataset riguarda il fatto che non tutte le osservazioni sono ad intervalli regolari tra di loro
+
+- Le osservazioni della stessa *burst* hanno una differenza di quattro ore tra una e l'altra, ma tra una *burst* e un'altra la distanza temporale è molto superiore 
+- Per ovviare a questo problema la funzione cerca un *match* tra l'orario desiderato e un'orario osservato nei dati
+
+```{r residui}
+residuals <- GON09_fnl %>%
+  arrange(t1_) %>%
+  mutate(
+    seasCD = as.numeric(seas == "CD"),
+    seasHD = as.numeric(seas == "HD"),
+    ta_hat = 2 * atan(fit_std$par[1] + 
+                        fit_std$par[2] * GON09_fnl$distriv_std + 
+                        fit_std$par[3] *  GON09_fnl$elev_std+ 
+                        fit_std$par[4] * GON09_fnl$ndvi_std+ 
+                        fit_std$par[5] * seasCD + 
+                        fit_std$par[6] * seasHD)
+  ) %>% 
+  dplyr::select(t2_, ta_, ta_hat) %>% 
+  dplyr::filter(!is.na(ta_)) %>% 
+  mutate(
+    res = (ta_ - ta_hat),
+    t2_ = round_date(t2_, unit = "hours")
+  ) %>% 
+  select(t2_, res)
+# funzione per calcolare ACF ----
+acf_circular <- function(lag, x){
+  res_lag <- x %>%  
+    mutate(t2_lag = t2_ + hours(lag * 4))
+  
+  res_lag <- res_lag %>% 
+    inner_join(
+      residuals,
+      by = c("t2_lag" = "t2_")
+    )
+  
+  n_match <- nrow(res_lag)
+  
+  cor <-  circular::cor.circular(res_lag$res.x, res_lag$res.y, test = T)
+  tibble(
+    lag = lag,
+    n_match = n_match,
+    acf = cor[[1]],
+    statistic = cor[[2]],
+    p.value = cor[[3]]
+  )
+}
+# calcolo ACF ----
+ACF <- map_dfr(
+  .x = 1:42, 
+  .f = ~acf_circular(lag = .x, x = residuals)
+) 
+# risultati ----
+ACF %>%
+  mutate(
+    total_hours = lag * 4,
+    days = floor(total_hours / 24),
+    hours = total_hours %% 24,
+    lag_label = case_when(
+      days > 0 & hours > 0 ~ paste0(days, " days ", hours, " hours"),
+      days > 0 & hours == 0 ~ paste0(days, " days"),
+      days == 0 & hours > 0 ~ paste0(hours, " hours"),
+      TRUE ~ "0 hours"
+    ),
+    signif = ifelse(p.value < 0.05, "*", "")
+  ) %>% 
+  select(lag_label, n_match, acf, statistic, p.value, signif) %>%
+  kable(format = "markdown",
+        col.names = c("Lag", "# of matches", "ACF", "Statistic", "p-value", "Signif"),
+        align = c("l", "c", "c", "c", "c", "c"))
+
+ACF %>%
+  mutate(signif = ifelse(p.value < 0.05, "Significant", "Not significant")) %>% 
+  ggplot(mapping = aes(x = lag, y = acf)) +
+  geom_hline(yintercept = 0) +
+  geom_segment(mapping = aes(
+    xend = lag, 
+    yend = 0,
+    colour = signif)) +
+  scale_colour_manual(values = c("black", "red")) +
+  theme_test() +
+  labs(
+    x = "Lag",
+    y = "ACF",
+    colour = "p-value < 0.05"
+  )
+```
+
+## Modello AR(1) 
+
+Dato che dalla funzione di autocorrelazione emerge una correlazione significativa dei primi 4 lag, cioè i residui al tempo $t-1$ (4 ore), $t-2$ (8 ore), $t-3$ (12 ore), $t-4$ (16 ore) sono correlati con i residui al tempo $t$, e non è quindi possibile assumere indipendenza tra le osservazioni, la funzione di log-verosimiglianza è ridefinita per tenerne conto come segue: 
+
+- Siano: 
+ - $\eta = \mathbf{X}\boldsymbol{\beta}$: il predittore lineare 
+ - $e_{t-1} = y_{t-1} - 2 \cdot \arctan(\eta_{t-1})$: i residui al tempo t-1
+- Assumiamo:
+
+$$
+\mu_t = 2 \cdot \arctan(\eta_{t}) + \arctan(\frac{\phi \cdot \sin(e_{t-1})}{k_t})
+$$
+
+e
+
+$$
+k_t = \sqrt{k^2 + [\phi \cdot \sin(e_{t-1})]^2}
+$$
+
+```{r AR1}
+# funzione di verosimiglianza ----
+pseudo.log.lik.VM.ar <- function(par, data, formula, response, burst) {
+  # dati ----
+  X <- model.matrix(formula, data)
+  y <- data[[response]]
+  burst <- data[[burst]]
+  
+  # parametri ----
+  beta <- par[1:ncol(X)]
+  phi <- par[ncol(X) + 1]
+  kappa <- exp(par[ncol(X) + 2])
+  
+  # funzione link ----
+  eta <- X %*% beta
+  l_data <- tibble(
+    burst = burst,
+    y = y,
+    eta = as.vector(eta)
+  ) %>% 
+    group_by(burst) %>% 
+    mutate(
+      res = y - 2 * atan(eta),
+      kappa_t = sqrt(kappa^2 + (phi * sin(lag(res)))^2),
+      mu_t = 2 * atan(eta) + atan(phi * sin(lag(res)) / kappa_t),
+      l = kappa_t * cos(y - mu_t) - log(besselI(kappa_t, nu = 0))
+    )
+  
+  # log-likleihood function ----
+  return(-sum(l_data$l, na.rm = T))
+}
+# fit ----
+fit_pmle <- optim(
+  par = c(rnorm(7, sd = 1), log(2)),
+  fn =  pseudo.log.lik.VM.ar,
+  data = GON09_fnl,
+  formula = ~ distriv_std + elev_std + ndvi_std ,
+  response = "ta_",
+  burst = "burst_",
+  method = "L-BFGS-B",
+  hessian = TRUE,
+  control = list(maxit = 1000)
+)
+# Risultati 
+tibble(
+  parameters = c("Intercept", "Distance from water", "Elevation", "NDVI Index", "Seas = CD", "Seas = HD", "phi", "kappa"),
+  estimate = c(fit_pmle$par[1:7], exp(fit_pmle$par[8])), 
+  # se = sqrt(diag(solve(fit_pmle$hessian))),
+  # lower = estimate - qnorm(0.975) * se,
+  # upper = estimate + qnorm(0.975) * se,
+  # W = estimate / se, 
+  # p_value = 2 * (1 - pnorm(abs(W)))
+) %>% 
+  mutate(across(where(is.numeric), ~ round(.x, 4))) %>%
+  kable(
+    col.names = c("Parameter", "Estimate"),
+    align = "lcccc",
+    format = "markdown"
+  )
+```

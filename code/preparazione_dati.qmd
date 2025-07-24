@@ -1,0 +1,152 @@
+```{r setup, include=FALSE}
+source("code/00_master_code.R")
+```
+# Preparazione dei dati 
+
+## Introduzione 
+ 
+Se sono disponibili dati sulla posizione degli animali registrata a intervalli regolare, per analizzarne il movimento degli animali vengono utilizzate tre metriche:
+ 
+1. La *step length*, misurata come [distanza euclidea](https://en.wikipedia.org/wiki/Euclidean_distance) tra due rilevazioni successive.
+
+::: {.callout-note}
+Se la posizione è registrata in gradi, anche la distanza euclidea sarà in gradi. È opportuno in questo caso convertire le coordinate in un sistema di proiezione metrica.
+:::
+
+2. La *direction*, misurata come [`atan2`](https://en.wikipedia.org/wiki/Atan2), espressa in radianti e compresa tra $-\pi$ e $\pi$. Lo 0 indica l'est geografico. 
+3. Il *turn angle* misurato come differenza tra *direction* (cioè `atan2`) successivi.
+ 
+## Verifiche sul pacchetto `amt`
+ 
+Per la preparazione dei dati verrà utilizzato il pacchetto `amt` [@signer_animal_nodate]: è fondamentale in via preliminare verificare che i calcoli che avvengono all'interno del pacchetto corrispondano a quelli descritti sopra. Per farlo, vengono creati manualmente dei semplici dati di input e si calcolano le metriche analiticamente. 
+```{r calcoli-manuali}
+# dati di input --- 
+df <- tibble(
+  x = c(0, 1, 1, 0),
+  y = c(0, 0, 1, 1),
+  t = as.POSIXct(c("2025-01-01 00:00:00", "2025-01-01 01:00:00",
+                   "2025-01-01 02:00:00", "2025-01-01 03:00:00"))
+)
+# plot ---
+ggplot(df, aes(x, y)) +
+  geom_path() +
+  geom_point() +
+  coord_equal() + 
+  theme_test()
+# calcoli manuali ---
+tibble(
+  step_length = c(
+    sqrt((df$x[2] - df$x[1])^2 + (df$y[2] - df$y[1])^2), 
+    sqrt((df$x[3] - df$x[2])^2 + (df$y[3] - df$y[2])^2),
+    sqrt((df$x[4] - df$x[3])^2 + (df$y[4] - df$y[3])^2)
+  ),
+  direction = c(
+    atan2(df$y[2], df$x[2]),
+    atan2(df$y[3], df$x[3]),
+    atan2(df$y[4], df$x[4])
+  ), 
+  turn_angle = c(
+    NA, 
+    direction[2] - direction[1],
+    direction[3] - direction[2]
+  )
+) %>% 
+  kable(
+    col.names = c("Step Length", "Direction", "Turn angle"),
+    format = "html", 
+    digits = 3
+  )
+```
+
+I risultati ottenuti possono ora essere confrontati con quelli ottenuti tramite il pacchetto. 
+```{r pacchetto-amt}
+# preparazione dei dati ----
+trk <- make_track(df, x, y, t) # sistema proiettato (UTM zona 32N)
+steps <- trk %>% 
+  amt::track_resample(rate = hours(1)) %>% 
+  steps_by_burst()
+# risultati ----
+steps %>% 
+  dplyr::select(sl_, direction_p, ta_) %>%
+  kable(
+    col.names = c("Step Length", "Direction", "Turn angle"),
+    format = "html",
+    digits = 3
+  )
+```
+
+Un altro elemento essenziale da comprendere, soprattutto nell'ottica dell'analisi dei residui, è il segno del *turn angle*
+ 
+-  Se il segno del *turn angle* è negativo vuol dire che l'animale ha girato in senso orario
+-  Per verificarlo e visualizzarlo creo un percorso in cui la *step length* è fissa ($=1$) e l'animale si muove in quattro direzioni ($\pi/4, 0, -\pi/4, 0$) e in cui ci aspettiamo che i primi due *turn angle* siano negativi mentre il terzo e il quarto siano positivi
+
+```{r turn-angle}
+# direzioni ----
+direction <- c(pi/4, 0, -pi/4, 0, pi/4)
+# coordinate cumulative della traiettoria ----
+x <- cumsum(c(0, cos(direction)))
+y <- cumsum(c(0, sin(direction)))
+# df con le coordinate e gli angoli ----
+df <- tibble(
+  step = 0:5,
+  x = x,
+  y = y,
+  direction = c(NA, direction),
+  ta = c(NA, diff(direction))
+)
+df %>% 
+  kable(
+    col.names = c("Step", "x", "y", "Direction", "Turn angle"),
+    format = "markdown", 
+    digits = 3
+  )
+# plot ----
+ggplot(df, aes(x, y)) +
+  geom_path(linewidth = 1, linetype = 2) +
+  geom_point() +
+  coord_equal() +
+  theme_test()
+```
+
+## Preparazione dei dati (id elefante: GON09)
+ 
+Le principali funzioni per la preparazione dei dati sono le seguenti: 
+ 
+- `amt::make_track()` crea un "track" cioè una tibble contenente le coordinate x e y, il tempo (t) e un sistema di riferimento di coordinate (CRS). Questa tibble verrà utilizzata dal pacchetto per le operazioni successive. Nel nostro caso il CRS è identificato con EPSG:21036, Arc 1960, UTM zone 36S.
+```{r make-track}
+load(paste0(dir_data, "/data_elephants_clean_envcovs.RData"))
+GON09 <- data_elephants %>% #ordino i dati per id e data/ora
+  arrange(id, timepoint) %>% 
+  filter(id == "GON09")
+crs <- capture.output(st_crs(GON09))
+```
+- `amt::summarize_sampling_rate()` fornisce la distribuzione della frequenza di campionamento e consente di vedere se le registrazione della posizione sono state costanti e con che intervallo. 
+```{r sampling-rate}
+GON09_trk <- amt::make_track(GON09,
+                             .x = "XUTM",
+                             .y = "YUTM", 
+                             .t = "timepoint",
+                             crs = 21036) 
+amt::summarize_sampling_rate(GON09_trk) %>% 
+  kable(format = "html")
+```
+- `amt::track_resample()` unito a `filter_min_n_burst(3)` permettono di conservare le osservazioni solo nel caso in cui in cui le registrazioni della posizione avvengono ad un intervallo costante (nel nostro caso 4h $\pm$ 15 min) per almeno tre registrazioni consecutive 
+-  `steps_by_burst()` passa da un `df` in cui ogni riga corrisponde ad una posizione ad uno in cui ogni riga corrisponde ad un passo. Per ogni passo, sono incluse le variabili coordinate di inizio (x1_, y1_ ), cordinate finali (x2_, y2_ ), tempo di inizio e di fine (t1_, t2_ ), step length (sl_; in CRS units), turning angles (ta_; in degrees), la time difference (dt_ ) e la burst (sequenza di passi con intervallo di registrazione di 4h) (burst_ ) a cui appartiene il *step*
+```{r burst}
+GON09_trk <-  track_resample(GON09_trk,
+                             rate = hours(4), 
+                             tolerance = minutes(20)) %>% 
+  filter_min_n_burst(3) %>% 
+  steps_by_burst()
+```
+-  L'ultimo passaggio per la preparazione dei dati consiste nell'associazione delle covariate ambientali agli spostamenti dell'animale. Abbiamo a disposizione, per ogni posizione, la distanza dalla riva (`distriv`), l'indice NDVI (`ndvi`), l'elevazione (`elev`) e la stagione (`seas`). Quest'ultima è una variabile con tre livelli: hot wet (`HW`) (Da Novembre a Marzo, quando si verifica il 90% delle piogge annuali); cool dry (`CD`) (Da aprile ad agosto) e hot dry (`HD`) (da Settembre a Ottobre) [@mandinyenya_sex_2024]
+-  È importante notare che il fatto che le covariate siano associate al punto di arrivo e non al punto di partenza, modifica sostanzialmente la domanda di ricerca. Cioè si investiga in questo modo quale sia la relazione tra il modo in cui si muove l'animale e il luogo verso il quale sta andando. 
+```{r GON09-final}
+GON09_fnl <- GON09_trk %>% 
+  left_join(
+    dplyr::select(GON09, XUTM, YUTM, distriv, ndvi, elev, seas),
+    join_by("x2_" == "XUTM", "y2_" == "YUTM")
+  )
+knitr::kable(head(GON09_fnl, 15), format = "markdown", digits = 2)
+write_csv(GON09_fnl, paste0(dir_data, "/GON09_fnl.csv"))
+```
