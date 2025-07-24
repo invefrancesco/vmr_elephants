@@ -96,6 +96,7 @@ fit_std <- optim(
   data = GON09_fnl, 
   formula = ~ distriv_std + elev_std + ndvi_std + seas, 
   response = "ta_",
+  control = list(maxit = 10000),
   hessian = T
 )
 # risultati ----
@@ -109,11 +110,11 @@ tibble(
   W = estimate / se, 
   p_value = 2 * (1 - pnorm(abs(W)))
 ) %>% 
-  mutate(across(where(is.numeric), ~ round(.x, 4))) %>%
   kable(
     col.names = c("Parameter", "Estimate", "Std. Error", "95% CI Lower", "95% CI Upper", "Wald test", "p-value"),
     align = "lcccc",
-    format = "markdown"
+    format = "markdown", 
+    
   )
 #     grafico dei coefficienti ----
 tibble(
@@ -305,14 +306,15 @@ pseudo.log.lik.VM.ar <- function(par, data, formula, response, burst) {
       kappa_t = sqrt(kappa^2 + (phi * sin(lag(res)))^2),
       mu_t = 2 * atan(eta) + atan(phi * sin(lag(res)) / kappa_t),
       l = kappa_t * cos(y - mu_t) - log(besselI(kappa_t, nu = 0))
-    )
+    ) %>% 
+    slice(3:n())
   
   # log-likleihood function ----
-  return(-sum(l_data$l, na.rm = T))
+  return(-sum(l_data$l))
 }
 # fit ----
 fit_pmle <- optim(
-  par = c(rnorm(7, sd = 1), log(2)),
+  par = c(rep(0, 7), log(2)),
   fn =  pseudo.log.lik.VM.ar,
   data = GON09_fnl,
   formula = ~ distriv_std + elev_std + ndvi_std ,
@@ -332,10 +334,12 @@ tibble(
   # W = estimate / se, 
   # p_value = 2 * (1 - pnorm(abs(W)))
 ) %>% 
-  mutate(across(where(is.numeric), ~ round(.x, 4))) %>%
   kable(
     col.names = c("Parameter", "Estimate"),
     align = "lcccc",
-    format = "markdown"
+    format = "html",
+    digits = 3
   )
+
+fit_pmle$hessian
 ```

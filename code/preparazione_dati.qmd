@@ -136,7 +136,7 @@ amt::summarize_sampling_rate(GON09_trk) %>%
 GON09_trk <-  track_resample(GON09_trk,
                              rate = hours(4), 
                              tolerance = minutes(20)) %>% 
-  filter_min_n_burst(3) %>% 
+  filter_min_n_burst(4) %>% 
   steps_by_burst()
 ```
 -  L'ultimo passaggio per la preparazione dei dati consiste nell'associazione delle covariate ambientali agli spostamenti dell'animale. Abbiamo a disposizione, per ogni posizione, la distanza dalla riva (`distriv`), l'indice NDVI (`ndvi`), l'elevazione (`elev`) e la stagione (`seas`). Quest'ultima è una variabile con tre livelli: hot wet (`HW`) (Da Novembre a Marzo, quando si verifica il 90% delle piogge annuali); cool dry (`CD`) (Da aprile ad agosto) e hot dry (`HD`) (da Settembre a Ottobre) [@mandinyenya_sex_2024]
