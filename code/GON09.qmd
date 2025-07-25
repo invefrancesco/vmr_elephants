@@ -341,5 +341,12 @@ tibble(
     digits = 3
   )
 
-fit_pmle$hessian
+param_names <- c("beta0", "beta1", "beta2", "beta3", "beta4", "beta5", "phi", "kappa")
+
+dimnames(fit_pmle$hessian) <- list(param_names, param_names)
+as.data.frame(fit_pmle$hessian) %>% 
+  kable(
+    format = "markdown", 
+    digits = 3
+  )
 ```
