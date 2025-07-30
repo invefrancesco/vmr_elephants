@@ -326,7 +326,7 @@ fit_pmle <- optim(
 )
 # Risultati 
 tibble(
-  parameters = c("Intercept", "Distance from water", "Elevation", "NDVI Index", "Seas = CD", "Seas = HD", "phi", "kappa"),
+  parameters = c("Intercept", "Distance from water", "Elevation", "NDVI Index", "phi", "kappa"),
   estimate = c(fit_pmle$par[1:7], exp(fit_pmle$par[8])), 
   # se = sqrt(diag(solve(fit_pmle$hessian))),
   # lower = estimate - qnorm(0.975) * se,
@@ -337,7 +337,7 @@ tibble(
   kable(
     col.names = c("Parameter", "Estimate"),
     align = "lcccc",
-    format = "html",
+    format = "markdown",
     digits = 3
   )
 
