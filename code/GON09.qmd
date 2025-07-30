@@ -1,4 +1,16 @@
+---
+format:
+  gfm:
+    toc: false
+    echo: false
+output-dir: docs
+execute:
+  echo: false
+  warning: false
+  message: false
+---
 ```{r setup, include = F}
+setwd(here::here())
 source("code/_master_code.R")
 ```
 # Analisi del primo elefante (id: GON09)
@@ -261,4 +273,87 @@ tibble(
     x = "Estimate with conf. intervals"
   ) +
   theme_test()
+```
+### Verifiche sul fit 
+```{r Verifiche sul fit}
+par <- fit_ar1$par
+X <- model.matrix(~ sl_ + distriv_std + ndvi_std + elev_std + seas,
+                  GON09)
+y <- GON09$ta_
+burst <- GON09$burst_
+
+# parametri ----
+beta <- par[1:ncol(X)]
+phi <- par[ncol(X) + 1]
+kappa <- exp(par[ncol(X) + 2])
+
+# log-likelihood ----
+eta <- X %*% beta
+l_data <- tibble(
+  burst = burst,
+  y = y,
+  eta = as.vector(eta)
+) %>% 
+  group_by(burst) %>% 
+  mutate(
+    res = y - 2 * atan(eta),
+    kappa_t = sqrt(kappa^2 + (phi * sin(lag(res)))^2),
+    mu_t = 2 * atan(eta) + atan(phi * sin(lag(res)) / kappa_t),
+    res_t = y - mu_t
+  ) %>% 
+  slice(3:n())
+
+# Istogramma dei residui 
+ggplot(data = l_data, aes(x = res_t)) +
+  geom_histogram(fill = "transparent", color = "black") +
+  theme_test() +
+  labs(
+    title = "Istogramma dei residui",
+    x = "Residui"
+  )
+
+# Residuals vs Fitted 
+ggplot(l_data, aes(x = mu_t, y = res_t)) +
+  geom_point() +
+  theme_test() +
+  geom_hline(yintercept=0, 
+             linetype="dashed", 
+             color = "red") +
+  labs(
+    title = "Residuals vs Fitted",
+    x = "Fitted values", 
+    y = "Residuals"
+  )
+
+# Istogramma Fitted vs Observed 
+ggplot(l_data, aes(x = y)) +
+  geom_histogram(aes(y = ..density.., fill = "Observed"),
+                 bins = 30, 
+                 position = "identity", 
+                 color = NA) +
+  geom_histogram(aes(x = mu_t, y = ..density.., fill = "Fitted"), 
+                 alpha = 0, 
+                 bins = 30, 
+                 position = "identity", 
+                 color = "black") +
+  scale_fill_manual(
+    values = c("Observed" = "red", "Fitted" = "black"),
+    name = NULL
+  ) +
+  labs(
+    title = "Fitted vs Observed",
+    x = "Angle (radians)",
+    y = "Density"
+  ) +
+  theme_test()
+
+# QQ plot Fitted vs Observed
+ggplot(data = l_data, aes(x = sort(mu_t), y = sort(y))) +
+  geom_point(size = 2, shape = 1) +
+  theme_test() +
+  labs(
+    title = "QQplot: Fitted vs Observed",
+    x = "Fitted", 
+    y = "Observed"
+  )
 ```

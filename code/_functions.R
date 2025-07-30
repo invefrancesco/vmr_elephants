@@ -54,13 +54,12 @@ log.lik.VM.ar <- function(par, data, formula, response, burst) {
   burst <- data[[burst]]
   
   # parametri ----
-  beta.0 <- atan2(sin(par[1]), cos(par[1]))
-  beta <- par[2:ncol(X)]
+  beta <- par[1:ncol(X)]
   phi <- par[ncol(X) + 1]
   kappa <- exp(par[ncol(X) + 2])
   
   # log-likelihood ----
-  eta <- X[,-1] %*% beta
+  eta <- X %*% beta
   l_data <- tibble(
     burst = burst,
     y = y,
@@ -70,7 +69,7 @@ log.lik.VM.ar <- function(par, data, formula, response, burst) {
     mutate(
       res = y - 2 * atan(eta),
       kappa_t = sqrt(kappa^2 + (phi * sin(lag(res)))^2),
-      mu_t =  beta.0 + 2 * atan(eta) + atan(phi * sin(lag(res)) / kappa_t),
+      mu_t =  2 * atan(eta) + atan(phi * sin(lag(res)) / kappa_t),
       l = kappa_t * cos(y - mu_t) - log(besselI(kappa_t, nu = 0))
     ) %>% 
     slice(3:n())
