@@ -1,5 +1,17 @@
+---
+format:
+  gfm:
+    toc: false
+    echo: false
+output-dir: docs
+execute:
+  echo: false
+  warning: false
+  message: false
+---
 ```{r setup, include = F}
-source("code/00_master_code.R")
+setwd(here::here())
+source("code/_master_code.R")
 ```
 # Distribuzione Von Mises
 
