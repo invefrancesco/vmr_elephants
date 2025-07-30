@@ -22,7 +22,7 @@ ggplot(data = GON09_fnl, aes(x = sl_, y = ..density..)) +
 ggplot(data = GON09_fnl, aes(x = ta_, y = ..density..)) +
   geom_histogram(color = "black", fill = NA) +
   geom_density() +
-  facet_wrap(~ seas) +
+# facet_wrap(~ seas) +
   theme_test() +
   xlab("Turn angle") +
   ylab("Density")
@@ -220,6 +220,8 @@ acf_circular <- function(lag, x){
     p.value = cor[[3]]
   )
 }
+
+
 # calcolo ACF ----
 ACF <- map_dfr(
   .x = 1:42, 
@@ -312,34 +314,19 @@ pseudo.log.lik.VM.ar <- function(par, data, formula, response, burst) {
   # log-likleihood function ----
   return(-sum(l_data$l))
 }
+
 # fit ----
 fit_pmle <- optim(
-  par = c(rep(0, 7), log(2)),
+  par = c(rep(0, 4), log(2)),
   fn =  pseudo.log.lik.VM.ar,
   data = GON09_fnl,
-  formula = ~ distriv_std + elev_std + ndvi_std ,
+  formula = ~ distriv_std + ndvi_std,
   response = "ta_",
   burst = "burst_",
   method = "L-BFGS-B",
   hessian = TRUE,
   control = list(maxit = 1000)
 )
-# Risultati 
-tibble(
-  parameters = c("Intercept", "Distance from water", "Elevation", "NDVI Index", "phi", "kappa"),
-  estimate = c(fit_pmle$par[1:7], exp(fit_pmle$par[8])), 
-  # se = sqrt(diag(solve(fit_pmle$hessian))),
-  # lower = estimate - qnorm(0.975) * se,
-  # upper = estimate + qnorm(0.975) * se,
-  # W = estimate / se, 
-  # p_value = 2 * (1 - pnorm(abs(W)))
-) %>% 
-  kable(
-    col.names = c("Parameter", "Estimate"),
-    align = "lcccc",
-    format = "markdown",
-    digits = 3
-  )
 
 param_names <- c("beta0", "beta1", "beta2", "beta3", "beta4", "beta5", "phi", "kappa")
 
@@ -349,4 +336,41 @@ as.data.frame(fit_pmle$hessian) %>%
     format = "markdown", 
     digits = 3
   )
+
+# risultati ----
+#     tabella ----
+tibble(
+  parametri = c("Intercept", "Distance from water", "NDVI Index","Phi" , "Kappa"),
+  estimate = c(fit_pmle$par[1:4], exp(fit_pmle$par[5])), 
+  se = sqrt(diag(solve(fit_pmle$hessian))),
+  lower = estimate - qnorm(0.975) * se,
+  upper = estimate + qnorm(0.975) * se,
+  W = estimate / se, 
+  p_value = 2 * (1 - pnorm(abs(W)))
+) %>% 
+  kable(
+    col.names = c("Parameter", "Estimate", "Std. Error", "95% CI Lower", "95% CI Upper", "Wald test", "p-value"),
+    align = "lcccc",
+    format = "markdown", 
+    
+  )
+#     grafico dei coefficienti ----
+tibble(
+  parameter = factor(c("Intercept", "Distance from water", "Elevation", "NDVI Index",
+                       "Seas = CD", "Seas = HD", "Kappa"),
+                     levels = c("Intercept", "Distance from water", "Elevation", "NDVI Index",
+                                "Seas = CD", "Seas = HD", "Kappa")),
+  estimate = c(fit_std$par[1:6], exp(fit_std$par[7])), 
+  se = sqrt(diag(solve(fit_std$hessian))),
+  lower = estimate - qnorm(0.975) * se,
+  upper = estimate + qnorm(0.975) * se
+) %>%
+  ggplot(aes(estimate, parameter)) +
+  geom_point() +
+  geom_errorbarh(aes(xmin = lower, xmax = upper)) +
+  geom_vline(xintercept = 0, lty = 2, color = "red") +
+  labs(
+    x = "Estimate with conf. intervals"
+  ) +
+  theme_test()
 ```
