@@ -1,4 +1,16 @@
+---
+format:
+  gfm:
+    toc: false
+    echo: false
+output-dir: docs
+execute:
+  echo: false
+  warning: false
+  message: false
+---
 ```{r setup, include=FALSE}
+setwd(here::here())
 source("code/_master_code.R")
 ```
 # Preparazione dei dati 
@@ -18,7 +30,7 @@ Se la posizione è registrata in gradi, anche la distanza euclidea sarà in grad
  
 ## Verifiche sul pacchetto `amt`
  
-Per la preparazione dei dati verrà utilizzato il pacchetto `amt` [@signer_animal_nodate]: è fondamentale in via preliminare verificare che i calcoli che avvengono all'interno del pacchetto corrispondano a quelli descritti sopra. Per farlo, vengono creati manualmente dei semplici dati di input e si calcolano le metriche analiticamente. 
+Per la preparazione dei dati verrà utilizzato il pacchetto `amt`: è fondamentale in via preliminare verificare che i calcoli che avvengono all'interno del pacchetto corrispondano a quelli descritti sopra. Per farlo, vengono creati manualmente dei semplici dati di input e si calcolano le metriche analiticamente. 
 ```{r calcoli-manuali}
 # dati di input --- 
 df <- tibble(
