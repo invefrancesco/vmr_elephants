@@ -25,6 +25,7 @@ pacman::p_load(
 
 # set folder paths ----
 getwd()
+source("code/_functions.R")
 dir_data <- paste0(getwd(), "/data")
 
 # print information on session (packages version, etc.) ----

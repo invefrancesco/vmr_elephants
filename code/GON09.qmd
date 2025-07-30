@@ -1,38 +1,22 @@
 ```{r setup, include = F}
-source("code/00_master_code.R")
+source("code/_master_code.R")
 ```
 # Analisi del primo elefante (id: GON09)
 
 ## Analisi esplorativa dei dati 
 
-Gli istogrammi rappresentano le distribuzioni di step length, turn angle e direction nelle tre stagioni climatiche 
+L'istogramma rappresenta la distribuzione del turn angle nelle tre stagioni climatiche
 
 ```{r visualizzazione}
 # data 
-GON09_fnl <- read_csv(paste0(dir_data, "/GON09_fnl.csv"))
-# step length ----
-ggplot(data = GON09_fnl, aes(x = sl_, y = ..density..)) +
-  geom_histogram(color = "black", fill = NA) +
-  geom_density() +
-  facet_wrap(~ seas) +
-  theme_test() +
-  xlab("Step length [km]") +
-  ylab("Density")
+GON09 <- read_csv(paste0(dir_data, "/GON09.csv"))
 # turn angle
-ggplot(data = GON09_fnl, aes(x = ta_, y = ..density..)) +
+ggplot(data = GON09, aes(x = ta_, y = ..density..)) +
   geom_histogram(color = "black", fill = NA) +
   geom_density() +
-# facet_wrap(~ seas) +
+ facet_wrap(~ seas) +
   theme_test() +
   xlab("Turn angle") +
-  ylab("Density")
-# direction
-ggplot(data = GON09_fnl, aes(x = direction_p, y = ..density..)) +
-  geom_histogram(color = "black", fill = NA) +
-  geom_density() +
-  facet_wrap(~ seas) +
-  theme_test() +
-  xlab("Direction") +
   ylab("Density")
 ```
 
@@ -60,40 +44,11 @@ $$
 *   La variabile `seas` è trattata come fattore con base la stagione "hot dry" (`HD`);
 *   Le covariate sono standardizzate per migliorare l'interpretabilità dei coefficienti stimati. 
 ```{r MLE-Von-Mises}
-# funzione di log-verosimiglianza ----
-log.lik.VM <- function(par, data, formula, response){
-  # Dati
-  X <- model.matrix(formula, data = data)
-  y <- data[[response]]
-  
-  # Parametri
-  p <- ncol(X)
-  beta <- par[1:p]
-  kappa <- exp(par[p+1])
-  
-  # Elimina righe con NA
-  valid <- complete.cases(y, X)
-  y <- y[valid]
-  X <- X[valid, , drop = FALSE]
-  
-  # Link function
-  eta <- X %*% beta
-  mu <- 2 * atan(eta)
-  
-  # Log-likelihood function
-  l <- kappa * cos(y - mu) - log(besselI(kappa, nu = 0))
-  return(-sum(l))
-}
-# standardizzo le covariate ---- 
-GON09_fnl <- GON09_fnl %>% 
-  mutate("distriv_std" = scale(GON09_fnl$distriv)[,1],
-         "elev_std" = scale(GON09_fnl$elev)[,1],
-         "ndvi_std" = scale(GON09_fnl$ndvi)[,1])
 # fit ----
 fit_std <- optim(
   par = c(rep(0,6), log(2)),
   fn = log.lik.VM, 
-  data = GON09_fnl, 
+  data = GON09, 
   formula = ~ distriv_std + elev_std + ndvi_std + seas, 
   response = "ta_",
   control = list(maxit = 10000),
@@ -160,7 +115,7 @@ expand_grid(
 
 ### Analisi dei residui
 
-I residui ($res = y^{oss} - \hat{y}$) sono sempre compresi in $-\pi$ a $+\pi$, cioè circa tra $-3.14$ e $+3.14 assumono i seguenti valori: 
+I residui ($res = y^{oss} - \hat{y}$) sono sempre compresi in $-\pi$ a $+\pi$ e assumono i seguenti valori: 
 
 - $> 0$ se $y^{oss} > \hat{y}$ cioè quando gira più a sinistra (senso antiorario) rispetto al previsto
 - $< 0$ se $y^{oss} < \hat{y}$ cioè quando gira più a destra (senso orario) rispetto al previsto
@@ -179,15 +134,15 @@ Un problema che si incontra con questo dataset riguarda il fatto che non tutte l
 - Per ovviare a questo problema la funzione cerca un *match* tra l'orario desiderato e un'orario osservato nei dati
 
 ```{r residui}
-residuals <- GON09_fnl %>%
+residuals <- GON09 %>%
   arrange(t1_) %>%
   mutate(
     seasCD = as.numeric(seas == "CD"),
     seasHD = as.numeric(seas == "HD"),
     ta_hat = 2 * atan(fit_std$par[1] + 
-                        fit_std$par[2] * GON09_fnl$distriv_std + 
-                        fit_std$par[3] *  GON09_fnl$elev_std+ 
-                        fit_std$par[4] * GON09_fnl$ndvi_std+ 
+                        fit_std$par[2] * GON09$distriv_std + 
+                        fit_std$par[3] *  GON09$elev_std+ 
+                        fit_std$par[4] * GON09$ndvi_std+ 
                         fit_std$par[5] * seasCD + 
                         fit_std$par[6] * seasHD)
   ) %>% 
@@ -198,29 +153,6 @@ residuals <- GON09_fnl %>%
     t2_ = round_date(t2_, unit = "hours")
   ) %>% 
   select(t2_, res)
-# funzione per calcolare ACF ----
-acf_circular <- function(lag, x){
-  res_lag <- x %>%  
-    mutate(t2_lag = t2_ + hours(lag * 4))
-  
-  res_lag <- res_lag %>% 
-    inner_join(
-      residuals,
-      by = c("t2_lag" = "t2_")
-    )
-  
-  n_match <- nrow(res_lag)
-  
-  cor <-  circular::cor.circular(res_lag$res.x, res_lag$res.y, test = T)
-  tibble(
-    lag = lag,
-    n_match = n_match,
-    acf = cor[[1]],
-    statistic = cor[[2]],
-    p.value = cor[[3]]
-  )
-}
-
 
 # calcolo ACF ----
 ACF <- map_dfr(
@@ -283,66 +215,24 @@ k_t = \sqrt{k^2 + [\phi \cdot \sin(e_{t-1})]^2}
 $$
 
 ```{r AR1}
-# funzione di verosimiglianza ----
-pseudo.log.lik.VM.ar <- function(par, data, formula, response, burst) {
-  # dati ----
-  X <- model.matrix(formula, data)
-  y <- data[[response]]
-  burst <- data[[burst]]
-  
-  # parametri ----
-  beta <- par[1:ncol(X)]
-  phi <- par[ncol(X) + 1]
-  kappa <- exp(par[ncol(X) + 2])
-  
-  # funzione link ----
-  eta <- X %*% beta
-  l_data <- tibble(
-    burst = burst,
-    y = y,
-    eta = as.vector(eta)
-  ) %>% 
-    group_by(burst) %>% 
-    mutate(
-      res = y - 2 * atan(eta),
-      kappa_t = sqrt(kappa^2 + (phi * sin(lag(res)))^2),
-      mu_t = 2 * atan(eta) + atan(phi * sin(lag(res)) / kappa_t),
-      l = kappa_t * cos(y - mu_t) - log(besselI(kappa_t, nu = 0))
-    ) %>% 
-    slice(3:n())
-  
-  # log-likleihood function ----
-  return(-sum(l_data$l))
-}
-
 # fit ----
-fit_pmle <- optim(
-  par = c(rep(0, 4), log(2)),
-  fn =  pseudo.log.lik.VM.ar,
-  data = GON09_fnl,
-  formula = ~ distriv_std + ndvi_std,
+fit_ar1 <- optim(
+  par = c(rnorm(8), log(2)),
+  fn =  log.lik.VM.ar,
+  data = GON09,
+  formula = ~ sl_ + distriv_std + ndvi_std + elev_std + seas,
   response = "ta_",
   burst = "burst_",
   method = "L-BFGS-B",
   hessian = TRUE,
   control = list(maxit = 1000)
 )
-
-param_names <- c("beta0", "beta1", "beta2", "beta3", "beta4", "beta5", "phi", "kappa")
-
-dimnames(fit_pmle$hessian) <- list(param_names, param_names)
-as.data.frame(fit_pmle$hessian) %>% 
-  kable(
-    format = "markdown", 
-    digits = 3
-  )
-
 # risultati ----
 #     tabella ----
 tibble(
-  parametri = c("Intercept", "Distance from water", "NDVI Index","Phi" , "Kappa"),
-  estimate = c(fit_pmle$par[1:4], exp(fit_pmle$par[5])), 
-  se = sqrt(diag(solve(fit_pmle$hessian))),
+  parameter = c("Intercept", "Step Length", "Distance from water", "NDVI Index", "Elevation", "Season = HD", "Season = HW", "Phi" , "Kappa"),
+  estimate = c(fit_ar1$par[1:8], exp(fit_ar1$par[9])), 
+  se = sqrt(diag(solve(fit_ar1$hessian))),
   lower = estimate - qnorm(0.975) * se,
   upper = estimate + qnorm(0.975) * se,
   W = estimate / se, 
@@ -351,20 +241,18 @@ tibble(
   kable(
     col.names = c("Parameter", "Estimate", "Std. Error", "95% CI Lower", "95% CI Upper", "Wald test", "p-value"),
     align = "lcccc",
-    format = "markdown", 
-    
+    format = "markdown"
   )
 #     grafico dei coefficienti ----
 tibble(
-  parameter = factor(c("Intercept", "Distance from water", "Elevation", "NDVI Index",
-                       "Seas = CD", "Seas = HD", "Kappa"),
-                     levels = c("Intercept", "Distance from water", "Elevation", "NDVI Index",
-                                "Seas = CD", "Seas = HD", "Kappa")),
-  estimate = c(fit_std$par[1:6], exp(fit_std$par[7])), 
-  se = sqrt(diag(solve(fit_std$hessian))),
+  parameter = c("Intercept", "Step Length", "Distance from water", "NDVI Index", "Elevation", "Season = HD", "Season = HW", "Phi" , "Kappa"),
+  estimate = c(fit_ar1$par[1:8], exp(fit_ar1$par[9])), 
+  se = sqrt(diag(solve(fit_ar1$hessian))),
   lower = estimate - qnorm(0.975) * se,
-  upper = estimate + qnorm(0.975) * se
-) %>%
+  upper = estimate + qnorm(0.975) * se,
+  W = estimate / se, 
+  p_value = 2 * (1 - pnorm(abs(W)))
+) %>% 
   ggplot(aes(estimate, parameter)) +
   geom_point() +
   geom_errorbarh(aes(xmin = lower, xmax = upper)) +

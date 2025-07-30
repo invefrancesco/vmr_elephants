@@ -1,5 +1,5 @@
 ```{r setup, include=FALSE}
-source("code/00_master_code.R")
+source("code/_master_code.R")
 ```
 # Preparazione dei dati 
 
@@ -146,7 +146,15 @@ GON09_fnl <- GON09_trk %>%
   left_join(
     dplyr::select(GON09, XUTM, YUTM, distriv, ndvi, elev, seas),
     join_by("x2_" == "XUTM", "y2_" == "YUTM")
-  )
+  ) 
+
+# covariate standardizzate
+GON09_fnl <- GON09_fnl %>% 
+  mutate("distriv_std" = scale(GON09_fnl$distriv)[,1],
+         "elev_std" = scale(GON09_fnl$elev)[,1],
+         "ndvi_std" = scale(GON09_fnl$ndvi)[,1])
+
 knitr::kable(head(GON09_fnl, 15), format = "markdown", digits = 2)
-write_csv(GON09_fnl, paste0(dir_data, "/GON09_fnl.csv"))
+write_csv(GON09_fnl, paste0(dir_data, "/GON09.csv"))
 ```
+## Secondo elefante (id:)
