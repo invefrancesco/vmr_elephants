@@ -357,3 +357,4 @@ ggplot(data = l_data, aes(x = sort(mu_t), y = sort(y))) +
     y = "Observed"
   )
 ```
+## Modello AR alternativo 

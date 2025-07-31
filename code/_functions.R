@@ -76,3 +76,35 @@ log.lik.VM.ar <- function(par, data, formula, response, burst) {
   
   return(-sum(l_data$l))
 }
+
+# log-likelihood ar alternativa 
+log.lik.VM.ar.alt <- function(par, data, formula, response, burst, L) {
+  # dati ----
+  X <- model.matrix(formula, data)
+  y <- data[[response]]
+  burst <- data[[burst]]
+  y_lag <- as.matrix(map_dfc(1:L, ~ lag(y, .x)))
+  
+  # parametri ----
+  beta <- par[1:ncol(X)]
+  phi <- par[(ncol(X) +1):(ncol(X) + L)]
+  kappa <- exp(par[ncol(X) + L + 1])
+  
+  # log-likelihood ----
+  eta <- X %*% beta
+  ar_term <- y_lag %*% phi
+  l_data <- tibble(
+    burst = burst,
+    y = y,
+    eta = as.vector(eta),
+    ar_term = as.vector(ar_term)
+  ) %>% 
+    group_by(burst) %>% 
+    mutate(
+      mu_t =  2 * atan(eta) + ar_term, 
+      l = kappa * cos(y - mu_t) - log(besselI(kappa, nu = 0))
+    ) %>% 
+    slice((L+2):n())
+  
+  return(-sum(l_data$l))
+}
