@@ -153,17 +153,20 @@ $$
 k_t = \sqrt{k^2 + [\phi \cdot \sin(e_{t-1})]^2}
 $$
 
+    ERROR : L-BFGS-B needs finite values of 'fn' 
+    ERROR : L-BFGS-B needs finite values of 'fn' 
+
 | Parameter | Estimate | Std. Error | 95% CI Lower | 95% CI Upper | Wald test | p-value |
 |:---|:--:|:--:|:--:|:--:|:---|:--:|
-| Intercept | -0.0092380 | 0.0278918 | -0.0639048 | 0.0454289 | -0.3312075 | 0.7404878 |
-| Step Length | -0.0015765 | 0.0110155 | -0.0231664 | 0.0200134 | -0.1431140 | 0.8862001 |
-| Distance from water | 0.0348190 | 0.0145136 | 0.0063728 | 0.0632652 | 2.3990533 | 0.0164375 |
-| NDVI Index | 0.0302760 | 0.0147799 | 0.0013080 | 0.0592441 | 2.0484649 | 0.0405145 |
-| Elevation | 0.0078912 | 0.0155444 | -0.0225754 | 0.0383577 | 0.5076539 | 0.6116961 |
-| Season = HD | -0.0254751 | 0.0350979 | -0.0942658 | 0.0433155 | -0.7258303 | 0.4679428 |
-| Season = HW | -0.0470482 | 0.0360794 | -0.1177626 | 0.0236662 | -1.3040161 | 0.1922281 |
-| Phi | 0.5438737 | 0.0480659 | 0.4496663 | 0.6380811 | 11.3151747 | 0.0000000 |
-| Kappa | 0.7788618 | 0.0348791 | 0.7105001 | 0.8472235 | 22.3303501 | 0.0000000 |
+| Intercept | -0.0092805 | 0.0278917 | -0.0639473 | 0.0453862 | -0.3327344 | 0.7393348 |
+| Step Length | -0.0015731 | 0.0110155 | -0.0231630 | 0.0200169 | -0.1428051 | 0.8864441 |
+| Distance from water | 0.0348281 | 0.0145137 | 0.0063817 | 0.0632745 | 2.3996659 | 0.0164100 |
+| NDVI Index | 0.0302810 | 0.0147800 | 0.0013126 | 0.0592493 | 2.0487740 | 0.0404842 |
+| Elevation | 0.0078983 | 0.0155445 | -0.0225683 | 0.0383648 | 0.5081072 | 0.6113781 |
+| Season = HD | -0.0254163 | 0.0350977 | -0.0942066 | 0.0433740 | -0.7241581 | 0.4689687 |
+| Season = HW | -0.0470185 | 0.0360792 | -0.1177324 | 0.0236955 | -1.3032021 | 0.1925058 |
+| Phi | 0.5437527 | 0.0480603 | 0.4495561 | 0.6379492 | 11.3139600 | 0.0000000 |
+| Kappa | 0.7789119 | 0.0348739 | 0.7105603 | 0.8472635 | 22.3350826 | 0.0000000 |
 
 ![](GON09_files/figure-commonmark/AR1-1.png)
 
@@ -176,3 +179,47 @@ $$
 ![](GON09_files/figure-commonmark/Verifiche%20sul%20fit-3.png)
 
 ![](GON09_files/figure-commonmark/Verifiche%20sul%20fit-4.png)
+
+## Modello AR alternativo
+
+Ai fini del confronto delle performance dei due modelli, si specifica
+anche un modello autoregressivo più semplice della forma:
+
+$$
+\mu_t = 2 \cdot \arctan(\eta_{t}) + \sum_{i=1}^L \phi_i y_{t-i} 
+$$
+
+- dove $L$ è il numero di lag
+
+<!-- -->
+
+    ERROR : L-BFGS-B needs finite values of 'fn' 
+
+     [1]  -24.46003  -32.31214 -601.09884  -36.44097 -601.09884  -32.45574
+     [7] -601.09884  -25.18112 -601.09884 -601.09884 -601.09884 -601.09884
+    [13]  -25.18112 -601.09884  -30.98342  -25.18112  -25.18112 -601.09884
+    [19] -601.09884
+
+| Parameter | Estimate | Std. Error | 95% CI Lower | 95% CI Upper | Wald test | p-value |
+|:---|:--:|:--:|:--:|:--:|:---|:--:|
+| Intercept | -0.0092805 | 0.0278917 | -0.0639473 | 0.0453862 | -0.3327344 | 0.7393348 |
+| Step Length | -0.0015731 | 0.0110155 | -0.0231630 | 0.0200169 | -0.1428051 | 0.8864441 |
+| Distance from water | 0.0348281 | 0.0145137 | 0.0063817 | 0.0632745 | 2.3996659 | 0.0164100 |
+| NDVI Index | 0.0302810 | 0.0147800 | 0.0013126 | 0.0592493 | 2.0487740 | 0.0404842 |
+| Elevation | 0.0078983 | 0.0155445 | -0.0225683 | 0.0383648 | 0.5081072 | 0.6113781 |
+| Season = HD | -0.0254163 | 0.0350977 | -0.0942066 | 0.0433740 | -0.7241581 | 0.4689687 |
+| Season = HW | -0.0470185 | 0.0360792 | -0.1177324 | 0.0236955 | -1.3032021 | 0.1925058 |
+| Phi | 0.5437527 | 0.0480603 | 0.4495561 | 0.6379492 | 11.3139600 | 0.0000000 |
+| Kappa | 0.7789119 | 0.0348739 | 0.7105603 | 0.8472635 | 22.3350826 | 0.0000000 |
+
+![](GON09_files/figure-commonmark/fit-AR1-alternative-1.png)
+
+### Verifiche sul modello alternativo
+
+![](GON09_files/figure-commonmark/Verifiche%20sul%20modello%20alternativo-1.png)
+
+![](GON09_files/figure-commonmark/Verifiche%20sul%20modello%20alternativo-2.png)
+
+![](GON09_files/figure-commonmark/Verifiche%20sul%20modello%20alternativo-3.png)
+
+![](GON09_files/figure-commonmark/Verifiche%20sul%20modello%20alternativo-4.png)

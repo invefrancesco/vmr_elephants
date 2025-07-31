@@ -228,17 +228,23 @@ $$
 
 ```{r AR1}
 # fit ----
-fit_ar1 <- optim(
-  par = c(rnorm(8), log(2)),
-  fn =  log.lik.VM.ar,
-  data = GON09,
-  formula = ~ sl_ + distriv_std + ndvi_std + elev_std + seas,
-  response = "ta_",
-  burst = "burst_",
-  method = "L-BFGS-B",
-  hessian = TRUE,
-  control = list(maxit = 1000)
-)
+fit_ar1 <- vector("list", 20)
+for(i in 1:20){
+  tryCatch(
+    fit_ar1[[i]] <- optim(
+      par = c(rnorm(8), log(2)),
+      fn =  log.lik.VM.ar,
+      data = GON09,
+      formula = ~ sl_ + distriv_std + ndvi_std + elev_std + seas,
+      response = "ta_",
+      burst = "burst_",
+      method = "L-BFGS-B",
+      hessian = TRUE,
+      control = list(maxit = 1000)),
+    error = function(e){cat("ERROR :",conditionMessage(e), "\n")}
+  )
+}
+fit_ar1 <- fit_ar1[[which.min(unlist(sapply(fit_ar1, "[[", "value")))]]
 # risultati ----
 #     tabella ----
 tibble(
@@ -358,3 +364,158 @@ ggplot(data = l_data, aes(x = sort(mu_t), y = sort(y))) +
   )
 ```
 ## Modello AR alternativo 
+
+Ai fini del confronto delle performance dei due modelli, si specifica anche un modello autoregressivo più semplice della forma: 
+
+$$
+\mu_t = 2 \cdot \arctan(\eta_{t}) + \sum_{i=1}^L \phi_i y_{t-i} 
+$$
+
+- dove $L$ è il numero di lag
+
+```{r fit-AR1-alternative}
+# fit (multistart) ----
+fit_ar1_alt <- vector("list", 20)
+for(i in 1:20) {
+  tryCatch(
+    fit_ar1_alt[[i]] <- optim(
+      par = c(rnorm(8), log(2)),
+      fn =  log.lik.VM.ar.alt,
+      data = GON09,
+      formula = ~ sl_ + distriv_std + ndvi_std + elev_std + seas,
+      response = "ta_",
+      burst = "burst_",
+      L = 1,
+      method = "L-BFGS-B",
+      hessian = TRUE,
+      control = list(maxit = 1000)),
+    error = function(e){cat("ERROR :",conditionMessage(e), "\n")}
+  )
+  }
+unlist(sapply(fit_ar1_alt, "[[", "value"))
+fit_ar1_alt <- fit_ar1_alt[[which.min(unlist(sapply(fit_ar1_alt, "[[", "value")))]]
+
+# risultati ----
+#     tabella ----
+tibble(
+  parameter = c("Intercept", "Step Length", "Distance from water", "NDVI Index", "Elevation", "Season = HD", "Season = HW", "Phi" , "Kappa"),
+  estimate = c(fit_ar1$par[1:8], exp(fit_ar1$par[9])), 
+  se = sqrt(diag(solve(fit_ar1$hessian))),
+  lower = estimate - qnorm(0.975) * se,
+  upper = estimate + qnorm(0.975) * se,
+  W = estimate / se, 
+  p_value = 2 * (1 - pnorm(abs(W)))
+) %>% 
+  kable(
+    col.names = c("Parameter", "Estimate", "Std. Error", "95% CI Lower", "95% CI Upper", "Wald test", "p-value"),
+    align = "lcccc",
+    format = "markdown"
+  )
+#     grafico dei coefficienti ----
+tibble(
+  parameter = c("Intercept", "Step Length", "Distance from water", "NDVI Index", "Elevation", "Season = HD", "Season = HW", "Phi" , "Kappa"),
+  estimate = c(fit_ar1$par[1:8], exp(fit_ar1$par[9])), 
+  se = sqrt(diag(solve(fit_ar1$hessian))),
+  lower = estimate - qnorm(0.975) * se,
+  upper = estimate + qnorm(0.975) * se,
+  W = estimate / se, 
+  p_value = 2 * (1 - pnorm(abs(W)))
+) %>% 
+  ggplot(aes(estimate, parameter)) +
+  geom_point() +
+  geom_errorbarh(aes(xmin = lower, xmax = upper)) +
+  geom_vline(xintercept = 0, lty = 2, color = "red") +
+  labs(
+    x = "Estimate with conf. intervals"
+  ) +
+  theme_test()
+```
+
+### Verifiche sul modello alternativo 
+
+```{r Verifiche sul modello alternativo}
+par <- fit_ar1_alt$par
+X <- model.matrix(~ sl_ + distriv_std + ndvi_std + elev_std + seas,
+                  GON09)
+y <- GON09$ta_
+burst <- GON09$burst_
+y_lag <- as_tibble(set_names(
+    map(1, ~ lag(y, .x)),
+    paste0("lag_", 1))) %>% 
+    as.matrix()
+
+# parametri ----
+beta <- par[1:ncol(X)]
+phi <- par[(ncol(X) +1):(ncol(X) + 1)]
+kappa <- exp(par[ncol(X) + 2])
+
+# log-likelihood ----
+eta <- X %*% beta
+ar_term <- y_lag %*% phi
+l_data <- tibble(
+    burst = burst,
+    y = y,
+    eta = as.vector(eta),
+    ar_term = as.vector(ar_term)
+  ) %>% 
+    group_by(burst) %>% 
+    mutate(
+      mu_t =  2 * atan(eta) + ar_term, 
+      res = y - mu_t
+    ) %>% 
+    slice((1+2):n())
+
+# Istogramma dei residui 
+ggplot(data = l_data, aes(x = res)) +
+  geom_histogram(fill = "transparent", color = "black") +
+  theme_test() +
+  labs(
+    title = "Istogramma dei residui",
+    x = "Residui"
+  )
+
+# Residuals vs Fitted 
+ggplot(l_data, aes(x = mu_t, y = res)) +
+  geom_point() +
+  theme_test() +
+  geom_hline(yintercept=0, 
+             linetype="dashed", 
+             color = "red") +
+  labs(
+    title = "Residuals vs Fitted",
+    x = "Fitted values", 
+    y = "Residuals"
+  )
+
+# Istogramma Fitted vs Observed 
+ggplot(l_data, aes(x = y)) +
+  geom_histogram(aes(y = ..density.., fill = "Observed"),
+                 bins = 30, 
+                 position = "identity", 
+                 color = NA) +
+  geom_histogram(aes(x = mu_t, y = ..density.., fill = "Fitted"), 
+                 alpha = 0, 
+                 bins = 30, 
+                 position = "identity", 
+                 color = "black") +
+  scale_fill_manual(
+    values = c("Observed" = "red", "Fitted" = "black"),
+    name = NULL
+  ) +
+  labs(
+    title = "Fitted vs Observed",
+    x = "Angle (radians)",
+    y = "Density"
+  ) +
+  theme_test()
+
+# QQ plot Fitted vs Observed
+ggplot(data = l_data, aes(x = sort(mu_t), y = sort(y))) +
+  geom_point(size = 2, shape = 1) +
+  theme_test() +
+  labs(
+    title = "QQplot: Fitted vs Observed",
+    x = "Fitted", 
+    y = "Observed"
+  )
+```

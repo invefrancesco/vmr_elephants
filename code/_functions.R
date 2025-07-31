@@ -83,7 +83,10 @@ log.lik.VM.ar.alt <- function(par, data, formula, response, burst, L) {
   X <- model.matrix(formula, data)
   y <- data[[response]]
   burst <- data[[burst]]
-  y_lag <- as.matrix(map_dfc(1:L, ~ lag(y, .x)))
+  y_lag <- as_tibble(set_names(
+    map(1:L, ~ lag(y, .x)),
+    paste0("lag_", 1:L))) %>% 
+    as.matrix()
   
   # parametri ----
   beta <- par[1:ncol(X)]
