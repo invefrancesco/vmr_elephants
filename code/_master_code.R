@@ -21,7 +21,7 @@ pacman::p_load(
   circular, # for circular data
   knitr,
   kableExtra, #
-  lealeft
+  leaflet
 )
 
 # set folder paths ----
