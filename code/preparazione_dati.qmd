@@ -170,3 +170,43 @@ knitr::kable(head(GON09_fnl, 15), format = "markdown", digits = 2)
 write_csv(GON09_fnl, paste0(dir_data, "/GON09.csv"))
 ```
 ## Secondo elefante (id:)
+
+```{r make-track}
+load(paste0(dir_data, "/data_elephants_clean_envcovs.RData"))
+GON10 <- data_elephants %>% #ordino i dati per id e data/ora
+  arrange(id, timepoint) %>% 
+  filter(id == "GON10")
+crs <- capture.output(st_crs(GON10))
+```
+```{r sampling-rate}
+GON10_trk <- amt::make_track(GON10,
+                             .x = "XUTM",
+                             .y = "YUTM", 
+                             .t = "timepoint",
+                             crs = 21036) 
+amt::summarize_sampling_rate(GON10_trk) %>% 
+  kable(format = "html")
+```
+```{r burst}
+GON10_trk <-  track_resample(GON10_trk,
+                             rate = hours(4), 
+                             tolerance = minutes(20)) %>% 
+  filter_min_n_burst(12) %>% 
+  steps_by_burst()
+```
+```{r GON09-final}
+GON10_fnl <- GON10_trk %>% 
+  left_join(
+    dplyr::select(GON10, XUTM, YUTM, distriv, ndvi, elev, seas),
+    join_by("x2_" == "XUTM", "y2_" == "YUTM")
+  ) 
+
+# covariate standardizzate
+GON10_fnl <- GON10_fnl %>% 
+  mutate("distriv_std" = scale(GON10_fnl$distriv)[,1],
+         "elev_std" = scale(GON10_fnl$elev)[,1],
+         "ndvi_std" = scale(GON10_fnl$ndvi)[,1])
+
+knitr::kable(head(GON10_fnl, 15), format = "markdown", digits = 2)
+write_csv(GON10_fnl, paste0(dir_data, "/GON10.csv"))
+```
