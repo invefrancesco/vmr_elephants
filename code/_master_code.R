@@ -20,7 +20,8 @@ pacman::p_load(
   lubridate, # parse and manipulate dates
   circular, # for circular data
   knitr,
-  kableExtra #
+  kableExtra, #
+  lealeft
 )
 
 # set folder paths ----

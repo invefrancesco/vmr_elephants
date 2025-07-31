@@ -171,14 +171,14 @@ write_csv(GON09_fnl, paste0(dir_data, "/GON09.csv"))
 ```
 ## Secondo elefante (id:)
 
-```{r make-track}
+```{r make-track 2}
 load(paste0(dir_data, "/data_elephants_clean_envcovs.RData"))
 GON10 <- data_elephants %>% #ordino i dati per id e data/ora
   arrange(id, timepoint) %>% 
   filter(id == "GON10")
 crs <- capture.output(st_crs(GON10))
 ```
-```{r sampling-rate}
+```{r sampling-rate 2}
 GON10_trk <- amt::make_track(GON10,
                              .x = "XUTM",
                              .y = "YUTM", 
@@ -187,14 +187,14 @@ GON10_trk <- amt::make_track(GON10,
 amt::summarize_sampling_rate(GON10_trk) %>% 
   kable(format = "html")
 ```
-```{r burst}
+```{r burst 2}
 GON10_trk <-  track_resample(GON10_trk,
                              rate = hours(4), 
                              tolerance = minutes(20)) %>% 
   filter_min_n_burst(12) %>% 
   steps_by_burst()
 ```
-```{r GON09-final}
+```{r GON10-final}
 GON10_fnl <- GON10_trk %>% 
   left_join(
     dplyr::select(GON10, XUTM, YUTM, distriv, ndvi, elev, seas),
@@ -210,3 +210,11 @@ GON10_fnl <- GON10_fnl %>%
 knitr::kable(head(GON10_fnl, 15), format = "markdown", digits = 2)
 write_csv(GON10_fnl, paste0(dir_data, "/GON10.csv"))
 ```
+
+## Mappa
+# ```{r mappa}
+# leaflet() %>% 
+#   addProviderTiles("Esri.WorldImagery") %>% 
+#   addCircleMarkers(data = st_transform(GON09, crs = 4326), color = "red", radius = 1) %>% 
+#   addCircleMarkers(data = st_transform(GON10, crs = 4326), color = "blue", radius = 1)
+# ```
