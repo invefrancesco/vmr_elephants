@@ -132,6 +132,56 @@ I residui ($res = y^{oss} - \hat{y}$) sono sempre compresi in $-\pi$ a $+\pi$ e 
 - $> 0$ se $y^{oss} > \hat{y}$ cioè quando gira più a sinistra (senso antiorario) rispetto al previsto
 - $< 0$ se $y^{oss} < \hat{y}$ cioè quando gira più a destra (senso orario) rispetto al previsto
 
+```{r residui-modello-base}
+# setup 
+par = fit_std$par 
+data = GON09
+formula = ~ distriv_std + elev_std + ndvi_std + seas 
+response = "ta_"
+
+# dati
+X <- model.matrix(formula, data = data)
+y <- data[[response]]
+
+# parametri
+p <- ncol(X)
+beta <- par[1:p]
+kappa <- exp(par[p+1])
+
+# elimina righe con NA
+valid <- complete.cases(y, X)
+y <- y[valid]
+X <- X[valid, , drop = FALSE]
+
+# link function
+eta <- X %*% beta
+mu <- 2 * atan(eta)
+
+# Istogramma Fitted vs Observed 
+y %>% as_tibble() %>% mutate("mu" = mu[,1]) %>% 
+  ggplot(aes(x = y)) +
+  geom_histogram(aes(y = ..density.., fill = "Observed"),
+                 bins = 30, 
+                 position = "identity", 
+                 color = NA) +
+  geom_histogram(aes(x = mu, y = ..density.., fill = "Fitted"), 
+                 alpha = 0, 
+                 bins = 30, 
+                 position = "identity", 
+                 color = "black") +
+  scale_fill_manual(
+    values = c("Observed" = "red", "Fitted" = "black"),
+    name = NULL
+  ) +
+  labs(
+    title = "Fitted vs Observed",
+    x = "Angle (radians)",
+    y = "Density"
+  ) +
+  theme_test()
+```
+
+
 Si vuole verificare se i residui al tempo $t$ siano correlati con i residui al tempo $t-1, \dots, t - n$ 
 
 - Trattandosi di dati angolari il coefficiente di correlazione è definito come [see @fisher_statistical_2000]: 

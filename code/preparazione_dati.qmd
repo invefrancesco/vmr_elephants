@@ -171,6 +171,47 @@ write_csv(GON09_fnl, paste0(dir_data, "/GON09.csv"))
 ```
 ## Secondo elefante (id:)
 
+```{r make-track 3}
+load(paste0(dir_data, "/data_elephants_clean_envcovs.RData"))
+GON10 <- data_elephants %>% #ordino i dati per id e data/ora
+  arrange(id, timepoint) %>% 
+  filter(id == "GON10")
+crs <- capture.output(st_crs(GON10))
+```
+```{r sampling-rate 3}
+GON10_trk <- amt::make_track(GON10,
+                             .x = "XUTM",
+                             .y = "YUTM", 
+                             .t = "timepoint",
+                             crs = 21036) 
+amt::summarize_sampling_rate(GON10_trk) %>% 
+  kable(format = "html")
+```
+```{r burst 3}
+GON10_trk <-  track_resample(GON10_trk,
+                             rate = hours(4), 
+                             tolerance = minutes(20)) %>% 
+  filter_min_n_burst(12) %>% 
+  steps_by_burst()
+```
+```{r GON11-final}
+GON10_fnl <- GON10_trk %>% 
+  left_join(
+    dplyr::select(GON10, XUTM, YUTM, distriv, ndvi, elev, seas),
+    join_by("x2_" == "XUTM", "y2_" == "YUTM")
+  ) 
+
+# covariate standardizzate
+GON10_fnl <- GON10_fnl %>% 
+  mutate("distriv_std" = scale(GON10_fnl$distriv)[,1],
+         "elev_std" = scale(GON10_fnl$elev)[,1],
+         "ndvi_std" = scale(GON10_fnl$ndvi)[,1])
+
+knitr::kable(head(GON10_fnl, 15), format = "markdown", digits = 2)
+write_csv(GON10_fnl, paste0(dir_data, "/GON10.csv"))
+```
+
+## Terzo elefante (id: GON11)
 ```{r make-track 2}
 load(paste0(dir_data, "/data_elephants_clean_envcovs.RData"))
 GON10 <- data_elephants %>% #ordino i dati per id e data/ora
@@ -218,3 +259,51 @@ write_csv(GON10_fnl, paste0(dir_data, "/GON10.csv"))
 #   addCircleMarkers(data = st_transform(GON09, crs = 4326), color = "red", radius = 1) %>% 
 #   addCircleMarkers(data = st_transform(GON10, crs = 4326), color = "blue", radius = 1)
 # ```
+
+## Dataset completo
+```{r}
+load(paste0(dir_data, "/data_elephants_clean_envcovs.RData"))
+
+# create a list of data
+dat_all <- data_elephants %>%  nest(-id)
+
+# create a track for each elephant
+dat_all <- dat_all %>% mutate(
+  trk = lapply(data, function(d) {
+    amt::make_track(d,
+                    .x = "XUTM",
+                    .y = "YUTM", 
+                    .t = "timepoint",
+                    crs = 21036)
+  }))
+
+# summarize sampling rate 
+dat_all %>% mutate(sr = lapply(trk, summarize_sampling_rate)) %>% 
+  select(id, sr) %>% 
+  unnest
+
+# filter by burst 
+dat_all_tmp <- dat_all %>%
+  filter(id != c("GON34", "GON35")) %>% 
+  mutate(stps = lapply(trk, function(x) { x %>% 
+    amt::track_resample(rate = hours(4), tolerance = minutes(20)) %>%
+      amt::filter_min_n_burst(12) %>% 
+      amt::steps_by_burst()
+  })) %>% 
+  select(id, stps) %>% 
+  unnest()
+
+dat_all <- dat_all_tmp %>% 
+  left_join(
+    dplyr::select(data_elephants, id, XUTM, YUTM, distriv, ndvi, elev, seas),
+    join_by("id" == "id", "x2_" == "XUTM", "y2_" == "YUTM")
+  ) %>% 
+  mutate("distriv_std" = scale(dat_all$distriv)[,1],
+         "elev_std" = scale(dat_all$elev)[,1],
+         "ndvi_std" = scale(dat_all$ndvi)[,1])
+
+knitr::kable(head(dat_all, 15), format = "markdown", digits = 2)
+write_csv(dat_all, paste0(dir_data, "/dat_all.csv"))
+```
+
+Vengono esclusi dal campione gli ultimi due elefanti (GON 35-35) perché hanno un sampling rate diverso (uno all'ora).
