@@ -15,6 +15,7 @@ if (!require("pacman")) install.packages("pacman")
 
 pacman::p_load(
   tidyverse, # load multiple 'tidyverse' packages in a single step
+  hardhat, # create high-quality R packages for modeling
   sf, # provides simple features access for R
   amt, #   manage and analyze animal movement data
   lubridate, # parse and manipulate dates

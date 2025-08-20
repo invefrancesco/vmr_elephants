@@ -111,3 +111,35 @@ log.lik.VM.ar.alt <- function(par, data, formula, response, burst, L) {
   
   return(-sum(l_data$l))
 }
+
+# log-likelihood con FE
+llVM.ar.fe <- function(par, data, formula, burst, id) {
+  # data ----
+  dm <- mold(formula, data,
+             blueprint = default_formula_blueprint(intercept = T))
+  
+  # parameters ----
+  beta <- par[1:ncol(dm$predictors)]
+  phi <- par[ncol(dm$predictors) + 1] 
+  kappa <- exp(par[ncol(dm$predictors) + 2])
+  
+  # log-likelihood ---
+  eta <- as.matrix(dm$predictors) %*% beta # linear predictor
+  ar_term <- as.matrix(lag(dm$outcomes)) %*% phi # autoregressive term 
+  l_data <- tibble(
+    id = data[[id]],
+    burst = data[[burst]], 
+    y = dm$outcomes[,1], 
+    eta = as.vector(eta), 
+    ar_term = as.vector(ar_term)
+  ) %>% 
+    group_by(id, burst) %>% # the likelihood is estimated inside id and burst 
+    mutate(
+      mu_t =  2 * atan(eta) + ar_term, 
+      l = kappa * cos(y - mu_t) - log(besselI(kappa, nu = 0))
+    ) %>% 
+    slice(3:n()) # first two terms are (for id and burst) NA
+  
+  # response 
+  return(-sum(l_data$l))
+}
