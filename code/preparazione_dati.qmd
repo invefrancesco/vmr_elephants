@@ -295,12 +295,14 @@ dat_all_tmp <- dat_all %>%
 
 dat_all <- dat_all_tmp %>% 
   left_join(
-    dplyr::select(data_elephants, id, XUTM, YUTM, distriv, ndvi, elev, seas),
+    dplyr::select(data_elephants, id, XUTM, YUTM, distriv, ndvi, elev, seas, sex),
     join_by("id" == "id", "x2_" == "XUTM", "y2_" == "YUTM")
-  ) %>% 
-  mutate("distriv_std" = scale(dat_all$distriv)[,1],
-         "elev_std" = scale(dat_all$elev)[,1],
-         "ndvi_std" = scale(dat_all$ndvi)[,1])
+  ) 
+
+dat_all <- dat_all %>% 
+  mutate("distriv_std" = scale(distriv)[,1],
+         "elev_std" = scale(elev)[,1],
+         "ndvi_std" = scale(ndvi)[,1])
 
 knitr::kable(head(dat_all, 15), format = "markdown", digits = 2)
 write_csv(dat_all, paste0(dir_data, "/dat_all.csv"))
