@@ -179,6 +179,9 @@ y %>% as_tibble() %>% mutate("mu" = mu[,1]) %>%
     y = "Density"
   ) +
   theme_test()
+
+
+
 ```
 
 
@@ -341,14 +344,19 @@ burst <- GON09$burst_
 # parametri ----
 beta <- par[1:ncol(X)]
 phi <- par[ncol(X) + 1]
-kappa <- exp(par[ncol(X) + 2])
+kappa <- exp(par[ncol(X) + 1])
 
 # log-likelihood ----
 eta <- X %*% beta
 l_data <- tibble(
   burst = burst,
   y = y,
-  eta = as.vector(eta)
+  eta = as.vector(eta),
+  sl_ = GON09$sl_,
+  distriv_std  = GON09$distriv_std,
+  ndvi_std = GON09$ndvi_std,
+  elev_std = GON09$elev_std,
+  seas = GON09$seas
 ) %>% 
   group_by(burst) %>% 
   mutate(
@@ -412,6 +420,36 @@ ggplot(data = l_data, aes(x = sort(mu_t), y = sort(y))) +
     x = "Fitted", 
     y = "Observed"
   )
+
+# PLOT COVARIATE
+ggplot(data = l_data, aes(x = l_data$distriv_std, y= l_data$res)) +
+  geom_point() +
+  theme_test() +
+  geom_hline(yintercept=0, 
+             linetype="dashed", 
+             color = "red") 
+
+ggplot(data = l_data, aes(x = l_data$sl_, y= l_data$res)) +
+  geom_point() +
+  theme_test() +
+  geom_hline(yintercept=0, 
+             linetype="dashed", 
+             color = "red") 
+
+ggplot(data = l_data, aes(x = l_data$ndvi_std, y= l_data$res)) +
+  geom_point() +
+  theme_test() +
+  geom_hline(yintercept=0, 
+             linetype="dashed", 
+             color = "red") 
+
+ggplot(data = l_data, aes(x = l_data$distriv_std, y= l_data$y)) +
+  geom_point(size = 0.1) +
+  theme_test() +
+  geom_hline(yintercept=0, 
+             linetype="dashed", 
+             color = "red") +
+  geom_density2d()
 ```
 ## Modello AR alternativo 
 
@@ -567,5 +605,17 @@ ggplot(data = l_data, aes(x = sort(mu_t), y = sort(y))) +
     title = "QQplot: Fitted vs Observed",
     x = "Fitted", 
     y = "Observed"
+  )
+
+ggplot(l_data, aes(x = mu_t, y = res)) +
+  geom_point() +
+  theme_test() +
+  geom_hline(yintercept=0, 
+             linetype="dashed", 
+             color = "red") +
+  labs(
+    title = "Residuals vs Fitted",
+    x = "Fitted values", 
+    y = "Residuals"
   )
 ```

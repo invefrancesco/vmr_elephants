@@ -24,13 +24,13 @@ dat_all <- read_csv(paste0(dir_data, "/dat_all.csv"))
 fit <- vector("list", 20)
 for(i in 1:20){
   tryCatch(
-    fit_ar1[[i]] <- optim(
+    fit[[i]] <- optim(
       par = c(rnorm(5), rnorm(2), rnorm(1), rnorm(23), rnorm(1), log(2)),
-      fn =  log.lik.VM.ar,
+      fn =  llVM.ar.fe,
       data = dat_all,
-      formula = ~ sl_ + distriv_std + ndvi_std + elev_std + seas + sex + id,
-      response = "ta_",
+      formula = ta_ ~ sl_ + distriv_std + ndvi_std + elev_std + seas + sex + id,
       burst = "burst_",
+      id = "id",
       method = "L-BFGS-B",
       hessian = TRUE,
       control = list(maxit = 1000)),
