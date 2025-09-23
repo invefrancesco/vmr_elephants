@@ -1,25 +1,25 @@
-# regressione Von Mises ----
-log.lik.VM <- function(par, data, formula, response){
-  # Dati
-  X <- model.matrix(formula, data = data)
-  y <- data[[response]]
+# Regressione Von Mises ----
+log.lik.VM <- function(par, data, formula) {
+  # Preparazione dati 
+  mm <- model.matrix(formula, data)
+  mf <- model.frame(formula, data)
   
   # Parametri
-  p <- ncol(X)
-  beta <- par[1:p]
-  kappa <- exp(par[p+1])
+  p     <- ncol(mm)      # numero di regressori
+  beta  <- par[1:p]                 # coefficienti
+  kappa <- exp(par[p + 1])          # forziamo positività con exp()
   
-  # Elimina righe con NA
-  valid <- complete.cases(y, X)
-  y <- y[valid]
-  X <- X[valid, , drop = FALSE]
+  # Predittore lineare
+  eta <- mm %*% beta
   
-  # Link function
-  eta <- X %*% beta
-  mu <- 2 * atan(eta)
+  # log-likelihood
+  y   <- mf[1]
+  mu  <- 2 * atan(eta)
   
-  # Log-likelihood function
-  l <- kappa * cos(y - mu) - log(besselI(kappa, nu = 0))
+  # log-likelihood (usiamo expon.scaled per stabilità numerica)
+  l <- kappa * cos(y - mu) - besselI(kappa, nu = 0)
+  
+  # Ritorniamo il negativo (per ottimizzazione)
   return(-sum(l))
 }
 
