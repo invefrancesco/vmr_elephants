@@ -40,7 +40,7 @@ tibble(
     format = "markdown", 
     digits = 3
   )
-)
+
 
 # DATI FITTATI 
 

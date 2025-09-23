@@ -1,8 +1,13 @@
 # Regressione Von Mises ----
-log.lik.VM <- function(par, data, formula) {
+log.lik.VM <- function(par, data, formula, response) {
+  # Complete cases
+  data <- data %>% 
+    select(all.vars(formula), response) %>% 
+    drop_na()
+  
   # Preparazione dati 
   mm <- model.matrix(formula, data)
-  mf <- model.frame(formula, data)
+  y <- data[[response]]
   
   # Parametri
   p     <- ncol(mm)      # numero di regressori
@@ -13,8 +18,8 @@ log.lik.VM <- function(par, data, formula) {
   eta <- mm %*% beta
   
   # log-likelihood
-  y   <- mf[1]
   mu  <- 2 * atan(eta)
+  
   
   # log-likelihood (usiamo expon.scaled per stabilità numerica)
   l <- kappa * cos(y - mu) - besselI(kappa, nu = 0)

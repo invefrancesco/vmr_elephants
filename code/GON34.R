@@ -20,8 +20,9 @@ ggplot(data = GON34, aes(x = ta_, y = ..density..)) +
 fit <- optim(
   par = c(rnorm(4), log(2)),
   fn = log.lik.VM, 
-  data = GON34, 
-  formula = ta_ ~ distriv_std + elev_std + ndvi_std,
+  data = GON34,
+  response = "ta_", 
+  formula = ~ distriv_std + elev_std + ndvi_std,
   control = list(maxit = 10000),
   hessian = T)
 # risultati ----
@@ -56,5 +57,51 @@ tibble(
   geom_vline(xintercept = 0, lty = 2, color = "red") +
   labs(
     x = "Estimate with conf. intervals"
+  ) +
+  theme_test()
+
+#| RESIDUI
+# Complete cases
+data <- GON34 %>% 
+select(all.vars(~ distriv_std + elev_std + ndvi_std), "ta_") %>% 
+  drop_na()
+
+# Preparazione dati 
+mm <- model.matrix(~ distriv_std + elev_std + ndvi_std, data)
+y <- data[["ta_"]]
+
+# Parametri
+p     <- ncol(mm)      # numero di regressori
+par <- fit$par
+beta  <- par[1:p]                 # coefficienti
+kappa <- exp(par[p + 1])          # forziamo positività con exp()
+
+# Predittore lineare
+eta <- mm %*% beta
+
+# log-likelihood
+mu  <- 2 * atan(eta)
+
+# Istogramma 
+tibble(
+  mu = mu, 
+  y = y
+) %>% 
+ggplot(aes(x = y)) +
+  geom_histogram(aes(y = ..density.., fill = "Observed"),
+                 position = "identity", 
+                 color = NA) +
+  geom_histogram(aes(x = mu, y = ..density.., fill = "Fitted"), 
+                 alpha = 0, 
+                 position = "identity", 
+                 color = "black") +
+  scale_fill_manual(
+    values = c("Observed" = "red", "Fitted" = "black"),
+    name = NULL
+  ) +
+  labs(
+    title = "Fitted vs Observed",
+    x = "Angle (radians)",
+    y = "Density"
   ) +
   theme_test()
