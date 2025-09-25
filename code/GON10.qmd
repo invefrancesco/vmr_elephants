@@ -3,7 +3,6 @@ format:
   gfm:
     toc: false
     echo: false
-output-dir: docs
 execute:
   echo: false
   warning: false

@@ -3,21 +3,19 @@ format:
   gfm:
     toc: false
     echo: false
-output-dir: docs
 execute:
   echo: false
   warning: false
   message: false
 ---
 ```{r setup, include = F}
-setwd(here::here())
 source("code/_master_code.R")
 ```
 # Distribuzione Von Mises
 
 ## Introduzione 
 
-Il post di [Whittenbury Daniel](https://dlwhittenbury.github.io/ds-1-sampling-and-visualising-the-von-mises-distribution.html) contiene alcune note riguardanti la distribuzione von Mises.
+Il post di [Daniel Whittenbury](https://dlwhittenbury.github.io/ds-1-sampling-and-visualising-the-von-mises-distribution.html) contiene alcune note riguardanti la distribuzione von Mises.
  
 La "statistica direzionale" ha numerosi usi nelle scienze
   
@@ -134,7 +132,7 @@ tibble(
   kable(
     col.names = c("Parameter", "Estimate", "Std. Error", "95% CI Lower", "95% CI Upper"),
     align = "lcccc",
-    format = "html", 
+    format = "markdown", 
     digits = 3
   )
 ```
