@@ -60,14 +60,8 @@ log.lik.VM.ar <- function(par, data, formula, response, burst) {
 
 # Von Mises log-likelihood with autoregressive component AR(1) ----------------
 # In this version, a id column is added in order to estimate FE
-log.lik.VM.ar.fe <- function(par, data, formula, response, burst, id) {
-  # Complete cases
-  data <- data %>%# nolint
-    dplyr::select(all.vars(formula), dplyr::all_of(c(response, burst))) %>%# nolint
-    tidyr::drop_na()
-  
-  # Design matrix
-  mm <- model.matrix(formula, data)
+log.lik.VM.ar.fe <- function(par, data, mm, response, burst, id) {
+  # Design matrix 
   y <- data[[response]]
   burst <- data[[burst]]
   id <- data[[id]]
