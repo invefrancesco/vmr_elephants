@@ -323,10 +323,10 @@ write_csv(GON34_fnl, paste0(dir_data, "/GON34.csv"))
 load(paste0(dir_data, "/data_elephants_clean_envcovs.RData"))
 
 # create a list of data
-dat_all <- data_elephants %>% nest(-id)
+data <- data_elephants %>% nest(data = -id)
 
 # create a track for each elephant
-dat_all <- dat_all %>% mutate(
+data <- data %>% mutate(
   trk = lapply(data, function(d) {
     amt::make_track(d,
       .x = "XUTM",
@@ -338,38 +338,38 @@ dat_all <- dat_all %>% mutate(
 )
 
 # summarize sampling rate
-dat_all %>%
+data %>%
   mutate(sr = lapply(trk, summarize_sampling_rate)) %>%
   select(id, sr) %>%
-  unnest()
+  unnest(cols = c(sr)) %>% 
+  print(n = 26)
 
 # filter by burst
-dat_all_tmp <- dat_all %>%
+data <- data %>%
   filter(id != c("GON34", "GON35")) %>%
   mutate(stps = lapply(trk, function(x) {
     x %>%
       amt::track_resample(rate = hours(4), tolerance = minutes(20)) %>%
-      amt::filter_min_n_burst(12) %>%
+      amt::filter_min_n_burst(12) %>% # a burst of 12 steps means the elephant is followed for at least two days
       amt::steps_by_burst()
   })) %>%
   select(id, stps) %>%
   unnest()
 
-dat_all <- dat_all_tmp %>%
+data <- data %>%
   left_join(
     dplyr::select(data_elephants, id, XUTM, YUTM, distriv, ndvi, elev, seas, sex),
     join_by("id" == "id", "x2_" == "XUTM", "y2_" == "YUTM")
   )
 
-dat_all <- dat_all %>%
+data <- data %>%
   mutate(
     "distriv_std" = scale(distriv)[, 1],
     "elev_std" = scale(elev)[, 1],
     "ndvi_std" = scale(ndvi)[, 1]
   )
 
-knitr::kable(head(dat_all, 15), format = "markdown", digits = 2)
-write_csv(dat_all, paste0(dir_data, "/dat_all.csv"))
+save(data, file = paste0(dir_data, "/elephants.RData"))
 ```
 
 Vengono esclusi dal campione gli ultimi due elefanti (GON 35-35) perché hanno un sampling rate diverso (uno all'ora).

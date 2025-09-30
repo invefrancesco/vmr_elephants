@@ -6,7 +6,10 @@ options(scipen = 999)
 message(
   paste0("Date: ", format(Sys.Date(), "%d %B %Y")), "\n",
   paste0("By: ", "Francesco Invernizzi"), "\n",
-  paste0("Description: ", "code - master code to upload packages and set directories"), "\n",
+  paste0(
+    "Description: ",
+    "code - master code to upload packages and set directories"
+  ), "\n",
   paste0("Version of R used: ", R.Version()$version.string)
 )
 
@@ -28,16 +31,3 @@ pacman::p_load(
 # set folder paths ----
 source("code/_functions.R")
 dir_data <- paste0(getwd(), "/data")
-
-# print information on session (packages version, etc.) ----
-# writeLines(
-#   text = capture.output(
-#     sessionInfo()
-#   ),
-#   con = paste0(
-#     getwd(),
-#     "/code/",
-#     "00_log_session_information",
-#     ".txt"
-#   )
-# )
