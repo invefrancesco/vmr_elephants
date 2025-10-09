@@ -1,5 +1,5 @@
 ---
-title: "Introduzione ai Modelli Mistura (MM)"
+title: "Introduction to Mixture Model and EM algorithm"
 author: "Francesco Invernizzi"
 output: gfm
 ---
@@ -204,7 +204,7 @@ So, the whole likelihood function is nothing else than a function of a random va
 \begin{align}
 E[\ell(\theta, \pi; \mathbf{x}, \mathbf{u}) \mid \mathbf{x}, \theta, \pi] 
   &= E\left[\sum_{i=1}^n \sum_{u=1}^k I(U=u) \log [\pi_u f_u(x_i; \theta_u)] \mid \mathbf{x}, \theta, \pi \right] \\
-  &= \sum_{i=1}^n \sum_{u=1}^k E[I(U=u) \mid \mathbf{x}, \theta, \pi ] \log [\pi_u f_u(x_i; \theta_u)]
+  &= \sum_{i=1}^n \sum_{u=1}^k E[I(U=u) \mid x_i, \theta_u, \pi_u ] \log [\pi_u f_u(x_i; \theta_u)]
 \end{align}
 
 Now recall that $I(U=u)$ is a Bernoulli r.v. and that its posterior probability $P(U=u \mid \mathbf{x}, \theta, \pi)$ can be evaluated by Bayes' theorem.
@@ -227,7 +227,7 @@ $$
 P(U=u \mid x, \theta, \pi) = \frac{f_u(x; \theta_u) \pi_u}{\sum_{u=1}^k f_u(x; \theta_u) \pi_u}
 $$
 
-The **expectation step** consists exactly in the estimation of posterior probabilities of U given a set of initial parameters.
+The **expectation step** consists exactly in the estimation of posterior probabilities of $U$ given a set of initial parameters.
 
 ### Maximization step
 
@@ -235,15 +235,154 @@ Given a set of values for $P(U=u \mid x, \theta, \pi)$, with $u \in \{ 1, 2, \do
 
 \begin{align}
 E[\ell(\theta, \pi; \mathbf{x}, \mathbf{u}) \mid \mathbf{x}, \theta, \pi] 
-  &= \sum_{i=1}^n \sum_{u=1}^k P(U=u \mid \mathbf{x}, \theta, \pi) \log [\pi_u f_u(x_i; \theta_u)]
+  &= \sum_{i=1}^n \sum_{u=1}^k P(U=u \mid x_i, \theta_u, \pi_u) \log [\pi_u f_u(x_i; \theta_u)]
 \end{align}
 
 After finding a set of parameters, we repeat the expectation step with the new parameters. After it, we iterate until convergence. 
 
+## Example
+
+Given the height data we already observed and stored in the `height` vector, we can implement the EM algorithm. 
+
+We first compute the observation specific posterior probabilities $u_{ik} = P(U=k | x_i, \mu_k, \sigma^2_k, \pi_k)$ given a set of initial parameters.
+
+Since we assume the mixture components to be $\sim N(\mu_u, \sigma_u)$ the maximum likelihood estimator to be used in the M-step are known.
+
+- parameters update for **mixture weights** is: 
+$$
+\pi_k^{(t+1)} = \frac{1}{n} \sum_{i=1}^{n} \hat{u}_{ik}^{(t)}
+$$
+- parameters update for **mixture means** is:
+$$
+\mu_k^{(t+1)} =
+\frac{\sum_{i=1}^{n} \hat{u}_{ik}^{(t)} x_i}
+{\sum_{i=1}^{n} \hat{u}_{ik}^{(t)}}
+$$
+- parameters update for **mixture variances** is:
+$$
+\sigma_k^{2 (t+1)} =
+\frac{\sum_{i=1}^{n} \hat{u}_{ik}^{(t)} (x_i - \mu_k^{(t+1)})^2}
+{\sum_{i=1}^{n} \hat{u}_{ik}^{(t)}}
+$$
+
+```{r}
+# Initial values
+# weights
+pi_1 <- (0.5)
+pi_2 <- (0.5)
+
+# I generate a random Bernoulli variable to divide the data in two initial clusters and take their means and variances
+mem <- rbinom(length(height), 1, 0.5)
+
+# mean
+mean_1 <- mean(height[mem == 0])
+mean_2 <- mean(height[mem == 1])
+
+# sigma
+sigma_1 <- sd(height[mem == 0])
+sigma_2 <- sd(height[mem == 1])
+```
+
+Now, before starting the iterations, we compute the expected value of the log-likelihood function for the initial parameters
+```{r}
+Q <- vector()
+Q[1] <- sum(log(
+  dnorm(height, mean_1, sigma_1) * pi_1 +
+    dnorm(height, mean_2, sigma_2) * pi_2
+  ))
+```
+
+In the E-step we compute the posterior probabilities
+```{r}
+# E-step
+joint_1 <- dnorm(height, mean_1, sigma_1) * pi_1
+joint_2 <- dnorm(height, mean_2, sigma_2) * pi_2
+marginal <- joint_1 + joint_2
+
+u_1 <- joint_1 / marginal
+u_2 <- joint_2 / marginal
+```
+
+In the M-step we use the uptated $u_{ik}$ to find new parameters
+```{r}
+# weights
+pi_1 <- sum(u_1) / length(height)
+pi_2 <- sum(u_2) / length(height)
+
+# mean
+mean_1 <- sum(u_1 * height) / sum(u_1)
+mean_2 <- sum(u_2 * height) / sum(u_2)
+
+# sigma
+sigma_1 <- sqrt(sum(u_1* (height - mean_1)^2 ) / sum(u_1))
+sigma_2 <- sqrt(sum(u_2* (height - mean_2)^2 ) / sum(u_2))
+```
+
+We store in the vector `Q` the expected value of the log-likelihood with the new parameters
+```{r}
+Q[2] <- sum(log(
+  dnorm(height, mean_1, sigma_1) * pi_1 +
+    dnorm(height, mean_2, sigma_2) * pi_2
+  ))
+
+Q
+```
+
+Now that we have seen each single step in action, we can iterate and let `R` do its job. 
+
+```{r}
+k <- 2
+while (abs(Q[k]-Q[k-1])>=1e-6) {
+  # E step
+  joint_1 <- dnorm(height, mean_1, sigma_1) * pi_1
+  joint_2 <- dnorm(height, mean_2, sigma_2) * pi_2
+  marginal <- joint_1 + joint_2
+  
+  u_1 <- joint_1 / marginal
+  u_2 <- joint_2 / marginal
+  
+  # M step
+  # weights
+  pi_1 <- sum(u_1) / length(height)
+  pi_2 <- sum(u_2) / length(height)
+
+  # mean
+  mean_1 <- sum(u_1 * height) / sum(u_1)
+  mean_2 <- sum(u_2 * height) / sum(u_2)
+
+  # sigma
+  sigma_1 <- sqrt(sum(u_1* (height - mean_1)^2 ) / sum(u_1))
+  sigma_2 <- sqrt(sum(u_2* (height - mean_2)^2 ) / sum(u_2))
+  
+  k <- k + 1
+  Q[k] <- sum(log(
+  dnorm(height, mean_1, sigma_1) * pi_1 +
+    dnorm(height, mean_2, sigma_2) * pi_2
+  ))
+}
+```
+
+The following table shows the results in comparison with the real parameters. The curve shows the log-likelihood values for each iteration. 
+```{r}
+#| echo: false
+#| message: false
+library(tidyverse)
+
+tibble(parameter = c("mu1", "mu2", 
+                     "sigma1", "sigma2",
+                     "pi1", "pi2"),
+       value = c(mean_1, mean_2, sigma_1, sigma_2, pi_1, pi_2),
+       value_true = c(175, 160, 7, 7, 25, 75)) %>% 
+  knitr::kable(format = "markdown")
+
+ggplot(tibble(iter = seq_along(Q), logLik = Q),
+       aes(x = iter, y = logLik)) +
+  geom_point() +
+  geom_line() +
+  labs(x = "Iteration", y = "Log-likelihood") +
+  theme_test()
+```
+
 ---
 
-https://www.cse.cuhk.edu.hk/~cslui/CSCI3320/Expectation%20Maximization%20-%20A%20Gentle%20Introduction.pdf
-
----
-
-**Acknowledgements**: 
+**Acknowledgements**: These notes are inspired by [Mortiz Blume](https://www.cse.cuhk.edu.hk/~cslui/CSCI3320/Expectation%20Maximization%20-%20A%20Gentle%20Introduction.pdf), [Matt Bonakdarpour](https://stephens999.github.io/fiveMinuteStats) and [Haojun Zhu](https://rpubs.com/H_Zhu/246450).

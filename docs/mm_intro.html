@@ -8,7 +8,7 @@
 
 <meta name="author" content="Francesco Invernizzi">
 
-<title>Introduzione ai Modelli Mistura (MM)</title>
+<title>Introduction to Mixture Model and EM algorithm</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -112,7 +112,7 @@ window.Quarto = {
 
 <header id="title-block-header" class="quarto-title-block default">
 <div class="quarto-title">
-<h1 class="title">Introduzione ai Modelli Mistura (MM)</h1>
+<h1 class="title">Introduction to Mixture Model and EM algorithm</h1>
 </div>
 
 
@@ -268,7 +268,7 @@ L(\theta, \pi; \mathbf{x}, \mathbf{u}) = \prod_{i=1}^n f(x_i) &amp;= \prod_{i=1}
 <p><span class="math display">\[\begin{align}
 E[\ell(\theta, \pi; \mathbf{x}, \mathbf{u}) \mid \mathbf{x}, \theta, \pi]
   &amp;= E\left[\sum_{i=1}^n \sum_{u=1}^k I(U=u) \log [\pi_u f_u(x_i; \theta_u)] \mid \mathbf{x}, \theta, \pi \right] \\
-  &amp;= \sum_{i=1}^n \sum_{u=1}^k E[I(U=u) \mid \mathbf{x}, \theta, \pi ] \log [\pi_u f_u(x_i; \theta_u)]
+  &amp;= \sum_{i=1}^n \sum_{u=1}^k E[I(U=u) \mid x_i, \theta_u, \pi_u ] \log [\pi_u f_u(x_i; \theta_u)]
 \end{align}\]</span></p>
 <p>Now recall that <span class="math inline">\(I(U=u)\)</span> is a Bernoulli r.v. and that its posterior probability <span class="math inline">\(P(U=u \mid \mathbf{x}, \theta, \pi)\)</span> can be evaluated by Bayes’ theorem.</p>
 <div class="callout callout-style-default callout-tip callout-titled">
@@ -296,21 +296,186 @@ P(A|B) = \frac{P(A \cap B)}{P(B)} = \frac{P(B|A)P(A)}{P(B)}
 <p><span class="math display">\[
 P(U=u \mid x, \theta, \pi) = \frac{f_u(x; \theta_u) \pi_u}{\sum_{u=1}^k f_u(x; \theta_u) \pi_u}
 \]</span></p>
-<p>The <strong>expectation step</strong> consists exactly in the estimation of posterior probabilities of U given a set of initial parameters.</p>
+<p>The <strong>expectation step</strong> consists exactly in the estimation of posterior probabilities of <span class="math inline">\(U\)</span> given a set of initial parameters.</p>
 </section>
 <section id="maximization-step" class="level3">
 <h3 class="anchored" data-anchor-id="maximization-step">Maximization step</h3>
 <p>Given a set of values for <span class="math inline">\(P(U=u \mid x, \theta, \pi)\)</span>, with <span class="math inline">\(u \in \{ 1, 2, \dots, k \}\)</span>, we can now find the values for <span class="math inline">\(\boldsymbol{\pi}\)</span> and <span class="math inline">\(\boldsymbol{\theta}\)</span> that maximize the expected log-likelihood function:</p>
 <p><span class="math display">\[\begin{align}
 E[\ell(\theta, \pi; \mathbf{x}, \mathbf{u}) \mid \mathbf{x}, \theta, \pi]
-  &amp;= \sum_{i=1}^n \sum_{u=1}^k P(U=u \mid \mathbf{x}, \theta, \pi) \log [\pi_u f_u(x_i; \theta_u)]
+  &amp;= \sum_{i=1}^n \sum_{u=1}^k P(U=u \mid x_i, \theta_u, \pi_u) \log [\pi_u f_u(x_i; \theta_u)]
 \end{align}\]</span></p>
 <p>After finding a set of parameters, we repeat the expectation step with the new parameters. After it, we iterate until convergence.</p>
-<hr>
-<p>https://www.cse.cuhk.edu.hk/~cslui/CSCI3320/Expectation%20Maximization%20-%20A%20Gentle%20Introduction.pdf</p>
-<hr>
-<p><strong>Acknowledgements</strong>:</p>
 </section>
+</section>
+<section id="example" class="level2">
+<h2 class="anchored" data-anchor-id="example">Example</h2>
+<p>Given the height data we already observed and stored in the <code>height</code> vector, we can implement the EM algorithm.</p>
+<p>We first compute the observation specific posterior probabilities <span class="math inline">\(u_{ik} = P(U=k | x_i, \mu_k, \sigma^2_k, \pi_k)\)</span> given a set of initial parameters.</p>
+<p>Since we assume the mixture components to be <span class="math inline">\(\sim N(\mu_u, \sigma_u)\)</span> the maximum likelihood estimator to be used in the M-step are known.</p>
+<ul>
+<li>parameters update for <strong>mixture weights</strong> is: <span class="math display">\[
+\pi_k^{(t+1)} = \frac{1}{n} \sum_{i=1}^{n} \hat{u}_{ik}^{(t)}
+\]</span></li>
+<li>parameters update for <strong>mixture means</strong> is: <span class="math display">\[
+\mu_k^{(t+1)} =
+\frac{\sum_{i=1}^{n} \hat{u}_{ik}^{(t)} x_i}
+{\sum_{i=1}^{n} \hat{u}_{ik}^{(t)}}
+\]</span></li>
+<li>parameters update for <strong>mixture variances</strong> is: <span class="math display">\[
+\sigma_k^{2 (t+1)} =
+\frac{\sum_{i=1}^{n} \hat{u}_{ik}^{(t)} (x_i - \mu_k^{(t+1)})^2}
+{\sum_{i=1}^{n} \hat{u}_{ik}^{(t)}}
+\]</span></li>
+</ul>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Initial values</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="co"># weights</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>pi_1 <span class="ot">&lt;-</span> (<span class="fl">0.5</span>)</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>pi_2 <span class="ot">&lt;-</span> (<span class="fl">0.5</span>)</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="co"># I generate a random Bernoulli variable to divide the data in two initial clusters and take their means and variances</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>mem <span class="ot">&lt;-</span> <span class="fu">rbinom</span>(<span class="fu">length</span>(height), <span class="dv">1</span>, <span class="fl">0.5</span>)</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="co"># mean</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>mean_1 <span class="ot">&lt;-</span> <span class="fu">mean</span>(height[mem <span class="sc">==</span> <span class="dv">0</span>])</span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>mean_2 <span class="ot">&lt;-</span> <span class="fu">mean</span>(height[mem <span class="sc">==</span> <span class="dv">1</span>])</span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a><span class="co"># sigma</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>sigma_1 <span class="ot">&lt;-</span> <span class="fu">sd</span>(height[mem <span class="sc">==</span> <span class="dv">0</span>])</span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>sigma_2 <span class="ot">&lt;-</span> <span class="fu">sd</span>(height[mem <span class="sc">==</span> <span class="dv">1</span>])</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>Now, before starting the iterations, we compute the expected value of the log-likelihood function for the initial parameters</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>Q <span class="ot">&lt;-</span> <span class="fu">vector</span>()</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>Q[<span class="dv">1</span>] <span class="ot">&lt;-</span> <span class="fu">sum</span>(<span class="fu">log</span>(</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">dnorm</span>(height, mean_1, sigma_1) <span class="sc">*</span> pi_1 <span class="sc">+</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    <span class="fu">dnorm</span>(height, mean_2, sigma_2) <span class="sc">*</span> pi_2</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>  ))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>In the E-step we compute the posterior probabilities</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="co"># E-step</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>joint_1 <span class="ot">&lt;-</span> <span class="fu">dnorm</span>(height, mean_1, sigma_1) <span class="sc">*</span> pi_1</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>joint_2 <span class="ot">&lt;-</span> <span class="fu">dnorm</span>(height, mean_2, sigma_2) <span class="sc">*</span> pi_2</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>marginal <span class="ot">&lt;-</span> joint_1 <span class="sc">+</span> joint_2</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>u_1 <span class="ot">&lt;-</span> joint_1 <span class="sc">/</span> marginal</span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>u_2 <span class="ot">&lt;-</span> joint_2 <span class="sc">/</span> marginal</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>In the M-step we use the uptated <span class="math inline">\(u_{ik}\)</span> to find new parameters</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co"># weights</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>pi_1 <span class="ot">&lt;-</span> <span class="fu">sum</span>(u_1) <span class="sc">/</span> <span class="fu">length</span>(height)</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>pi_2 <span class="ot">&lt;-</span> <span class="fu">sum</span>(u_2) <span class="sc">/</span> <span class="fu">length</span>(height)</span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a><span class="co"># mean</span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>mean_1 <span class="ot">&lt;-</span> <span class="fu">sum</span>(u_1 <span class="sc">*</span> height) <span class="sc">/</span> <span class="fu">sum</span>(u_1)</span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>mean_2 <span class="ot">&lt;-</span> <span class="fu">sum</span>(u_2 <span class="sc">*</span> height) <span class="sc">/</span> <span class="fu">sum</span>(u_2)</span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a><span class="co"># sigma</span></span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>sigma_1 <span class="ot">&lt;-</span> <span class="fu">sqrt</span>(<span class="fu">sum</span>(u_1<span class="sc">*</span> (height <span class="sc">-</span> mean_1)<span class="sc">^</span><span class="dv">2</span> ) <span class="sc">/</span> <span class="fu">sum</span>(u_1))</span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a>sigma_2 <span class="ot">&lt;-</span> <span class="fu">sqrt</span>(<span class="fu">sum</span>(u_2<span class="sc">*</span> (height <span class="sc">-</span> mean_2)<span class="sc">^</span><span class="dv">2</span> ) <span class="sc">/</span> <span class="fu">sum</span>(u_2))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>We store in the vector <code>Q</code> the expected value of the log-likelihood with the new parameters</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>Q[<span class="dv">2</span>] <span class="ot">&lt;-</span> <span class="fu">sum</span>(<span class="fu">log</span>(</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">dnorm</span>(height, mean_1, sigma_1) <span class="sc">*</span> pi_1 <span class="sc">+</span></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>    <span class="fu">dnorm</span>(height, mean_2, sigma_2) <span class="sc">*</span> pi_2</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>  ))</span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>Q</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] -18410.48 -18410.00</code></pre>
+</div>
+</div>
+<p>Now that we have seen each single step in action, we can iterate and let <code>R</code> do its job.</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>k <span class="ot">&lt;-</span> <span class="dv">2</span></span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a><span class="cf">while</span> (<span class="fu">abs</span>(Q[k]<span class="sc">-</span>Q[k<span class="dv">-1</span>])<span class="sc">&gt;=</span><span class="fl">1e-6</span>) {</span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>  <span class="co"># E step</span></span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>  joint_1 <span class="ot">&lt;-</span> <span class="fu">dnorm</span>(height, mean_1, sigma_1) <span class="sc">*</span> pi_1</span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>  joint_2 <span class="ot">&lt;-</span> <span class="fu">dnorm</span>(height, mean_2, sigma_2) <span class="sc">*</span> pi_2</span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>  marginal <span class="ot">&lt;-</span> joint_1 <span class="sc">+</span> joint_2</span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a>  u_1 <span class="ot">&lt;-</span> joint_1 <span class="sc">/</span> marginal</span>
+<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a>  u_2 <span class="ot">&lt;-</span> joint_2 <span class="sc">/</span> marginal</span>
+<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a>  <span class="co"># M step</span></span>
+<span id="cb9-12"><a href="#cb9-12" aria-hidden="true" tabindex="-1"></a>  <span class="co"># weights</span></span>
+<span id="cb9-13"><a href="#cb9-13" aria-hidden="true" tabindex="-1"></a>  pi_1 <span class="ot">&lt;-</span> <span class="fu">sum</span>(u_1) <span class="sc">/</span> <span class="fu">length</span>(height)</span>
+<span id="cb9-14"><a href="#cb9-14" aria-hidden="true" tabindex="-1"></a>  pi_2 <span class="ot">&lt;-</span> <span class="fu">sum</span>(u_2) <span class="sc">/</span> <span class="fu">length</span>(height)</span>
+<span id="cb9-15"><a href="#cb9-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-16"><a href="#cb9-16" aria-hidden="true" tabindex="-1"></a>  <span class="co"># mean</span></span>
+<span id="cb9-17"><a href="#cb9-17" aria-hidden="true" tabindex="-1"></a>  mean_1 <span class="ot">&lt;-</span> <span class="fu">sum</span>(u_1 <span class="sc">*</span> height) <span class="sc">/</span> <span class="fu">sum</span>(u_1)</span>
+<span id="cb9-18"><a href="#cb9-18" aria-hidden="true" tabindex="-1"></a>  mean_2 <span class="ot">&lt;-</span> <span class="fu">sum</span>(u_2 <span class="sc">*</span> height) <span class="sc">/</span> <span class="fu">sum</span>(u_2)</span>
+<span id="cb9-19"><a href="#cb9-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-20"><a href="#cb9-20" aria-hidden="true" tabindex="-1"></a>  <span class="co"># sigma</span></span>
+<span id="cb9-21"><a href="#cb9-21" aria-hidden="true" tabindex="-1"></a>  sigma_1 <span class="ot">&lt;-</span> <span class="fu">sqrt</span>(<span class="fu">sum</span>(u_1<span class="sc">*</span> (height <span class="sc">-</span> mean_1)<span class="sc">^</span><span class="dv">2</span> ) <span class="sc">/</span> <span class="fu">sum</span>(u_1))</span>
+<span id="cb9-22"><a href="#cb9-22" aria-hidden="true" tabindex="-1"></a>  sigma_2 <span class="ot">&lt;-</span> <span class="fu">sqrt</span>(<span class="fu">sum</span>(u_2<span class="sc">*</span> (height <span class="sc">-</span> mean_2)<span class="sc">^</span><span class="dv">2</span> ) <span class="sc">/</span> <span class="fu">sum</span>(u_2))</span>
+<span id="cb9-23"><a href="#cb9-23" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb9-24"><a href="#cb9-24" aria-hidden="true" tabindex="-1"></a>  k <span class="ot">&lt;-</span> k <span class="sc">+</span> <span class="dv">1</span></span>
+<span id="cb9-25"><a href="#cb9-25" aria-hidden="true" tabindex="-1"></a>  Q[k] <span class="ot">&lt;-</span> <span class="fu">sum</span>(<span class="fu">log</span>(</span>
+<span id="cb9-26"><a href="#cb9-26" aria-hidden="true" tabindex="-1"></a>  <span class="fu">dnorm</span>(height, mean_1, sigma_1) <span class="sc">*</span> pi_1 <span class="sc">+</span></span>
+<span id="cb9-27"><a href="#cb9-27" aria-hidden="true" tabindex="-1"></a>    <span class="fu">dnorm</span>(height, mean_2, sigma_2) <span class="sc">*</span> pi_2</span>
+<span id="cb9-28"><a href="#cb9-28" aria-hidden="true" tabindex="-1"></a>  ))</span>
+<span id="cb9-29"><a href="#cb9-29" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>The following table shows the results in comparison with the real parameters. The curve shows the log-likelihood values for each iteration.</p>
+<div class="cell">
+<div class="cell-output-display">
+<table class="caption-top table table-sm table-striped small">
+<thead>
+<tr class="header">
+<th style="text-align: left;">parameter</th>
+<th style="text-align: right;">value</th>
+<th style="text-align: right;">value_true</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">mu1</td>
+<td style="text-align: right;">175.8595573</td>
+<td style="text-align: right;">175</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">mu2</td>
+<td style="text-align: right;">160.2029638</td>
+<td style="text-align: right;">160</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">sigma1</td>
+<td style="text-align: right;">6.7299744</td>
+<td style="text-align: right;">7</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">sigma2</td>
+<td style="text-align: right;">7.1585463</td>
+<td style="text-align: right;">7</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">pi1</td>
+<td style="text-align: right;">0.2232952</td>
+<td style="text-align: right;">25</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">pi2</td>
+<td style="text-align: right;">0.7767048</td>
+<td style="text-align: right;">75</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="mm_intro_files/figure-html/unnamed-chunk-9-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<hr>
+<p><strong>Acknowledgements</strong>: These notes are inspired by <a href="https://www.cse.cuhk.edu.hk/~cslui/CSCI3320/Expectation%20Maximization%20-%20A%20Gentle%20Introduction.pdf">Mortiz Blume</a>, <a href="https://stephens999.github.io/fiveMinuteStats">Matt Bonakdarpour</a> and <a href="https://rpubs.com/H_Zhu/246450">Haojun Zhu</a>.</p>
 </section>
 </section>
 
