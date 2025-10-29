@@ -9,7 +9,7 @@
 #' - The $\mu_k$ for each component are given by $2 \cdot \atan (\Beta X)$
 #' 
 #' ----------------------------------------------------------------------------
-#' # Packages and data load
+#' # Packages
 rm(list = ls())
 if (!require("pacman")) install.packages("pacman")
 
@@ -22,30 +22,19 @@ pacman::p_load(
   kableExtra # Build complex HTML or 'LaTeX' tables
 )
 
-dir_data <- paste0(getwd(), "/data")
-load(paste0(dir_data, "/elephants.RData"))
-
-#' Design matrix 
-formula <- ~ distriv_std + elev_std + ndvi_std + seas + sex
-
-data <- data %>%
-  dplyr::select(all.vars(formula), "ta_", "burst_", "id") %>%
-  tidyr::drop_na()
-
-X <-  model.matrix(formula, data)
-
-y <- data$ta_
-# -----------------------------------------------------------------------------
+#' ----------------------------------------------------------------------------
 #' # Functions
 #' 
 #' Function to be maximized in the M-step
 m <- function(w, y, X, par){
   # Parameters
-  # A matrix of betas k*B with k the number of mixture components and B the
+  # A matrix of betas K*B with k the number of mixture components and B the
   # number of covariates
-  beta <- matrix(par[1:ncol(X)*ncol(w)], nrow = ncol(X), ncol = ncol(w))
-  # A vector of k
-  kappa <- par[(ncol(X)*ncol(w) + 1): (ncol(X)*ncol(w) + ncol(w))]
+  K <- ncol(w)
+  B <- ncol(X)
+  beta <- matrix(par[1:(B*K)], nrow = B, ncol = K)
+  # A vector of k: exp to guarantee positive values
+  kappa <- exp(par[(B*K+1) : (B*K+K)])
   # A matrix of observation-related means
   mu <- 2 * atan(X %*% beta)
   
@@ -58,11 +47,13 @@ m <- function(w, y, X, par){
   -sum(Q)
 }
 
-# Log-likelihod function to store compute wieights and store the value
+#' Log-likelihod function to store compute wieights and store the value
 loglik <- function(p, y, X, par){
   # Parameters
-  beta <- matrix(par[1:ncol(X)*ncol(w)], nrow = ncol(X), ncol = ncol(w))
-  kappa <- par[(ncol(X)*ncol(w) + 1): (ncol(X)*ncol(w) + ncol(w))]
+  K <- length(p)
+  B <- ncol(X)
+  beta <- matrix(par[1:(B*K)], nrow = B, ncol = K)
+  kappa <- exp(par[(B*K+1) : (B*K+K)])
   mu <- 2 * atan(X %*% beta)
   
   # Compute the value of each component of the log-likelihood
@@ -70,22 +61,75 @@ loglik <- function(p, y, X, par){
   l <- sapply(
     seq_along(p),
     function(k) 
-      p[k] * (exp(kappa[k] * cos(y - mu[k])) / (2 * pi * besselI(kappa[k], 0)))
+      p[k] * (exp(kappa[k] * cos(y - mu[,k])) / (2 * pi * besselI(kappa[k], 0)))
   )
   list(l, sum(log(rowSums(l))))
 }
 
-# EM-algorith,
-  # E step
-  f <- loglik(p, y, X, par)[[1]]
-  w <- f/rowSums(f)
+#' EM 
+em <- function(y, X, K) {
+  # Initial values
+  par <- c(rnorm(K * ncol(X)), rexp(K))
+  p <- rexp(K)
+  p <- p/sum(p)
   
-  # M-step 
-  p <- sapply(seq_along(p), function(k) mean(w[, k]))
+  # EM-algorith
+  # Initial likelihood 
+  l <- vector()
+  l[1] <- -Inf
+  l[2] <- loglik(p, y, X, par)[[2]]
   
-  par <- par
-  opt <- optim(fn = m, w, y, X, par)
+  it <- 2
   
-  # Update iteration value
-  it <- it +1
-  l[it] <- loglik(p, y, X, opt$par)
+  while (abs(l[it] - l[it - 1]) >= 1e-4){
+    # E step
+    f <- loglik(p, y, X, par)[[1]]
+    w <- f/rowSums(f)
+    
+    # M-step 
+    # pi_k explicit update
+    p <- sapply(seq_along(p), function(k) mean(w[, k]))
+    
+    # Parameters computational update
+    opt <- optim(
+      par = par, 
+      fn = m, 
+      w = w, 
+      y = y, 
+      X = X,
+      control = list(maxit = 10000)
+    )
+    
+    if (opt$convergence != 0) {# Convergence check
+      warning("Convergence:", opt$convergence)
+    }
+    
+    # Update iteration value
+    par <- opt$par
+    it <- it +1
+    l[it] <- loglik(p, y, X, par)[[2]]
+  }
+  
+  list(p=p, 
+       par = par, 
+       l = l)
+}
+
+#' ----------------------------------------------------------------------------
+#' Data load and results
+
+dir_data <- paste0(getwd(), "/data")
+load(paste0(dir_data, "/elephants.RData"))
+
+# Design matrix 
+formula <- ~ distriv_std + elev_std + ndvi_std + seas + sex
+
+data <- data %>%
+  dplyr::select(all.vars(formula), "ta_", "burst_", "id") %>%
+  tidyr::drop_na()
+
+X <-  model.matrix(formula, data)
+y <- data$ta_
+
+# EM estimates for K = 2
+res2 <- em(y, X, K = 2)
