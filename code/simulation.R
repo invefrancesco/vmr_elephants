@@ -75,7 +75,6 @@ simulate_burst <- function(n, prob, kappa, mu, phi) {
 #   TRIAL PARAMETERS AND SIMULATION
 # --------------------------------------------------------------------------- #
 
-n <- 100 # Total number of observations to simulate
 prob <- c(0.25, 0.75) # Mixing probabilities for the latent states (Z)
 
 kappa <- c(8, 10) # Unconditional concentrations
@@ -93,4 +92,7 @@ phi <- matrix( # Autoregressive parameters
 )
 
 set.seed(1234)
-simulate_burst(100, prob, kappa, mu, phi) # Trial simulation
+dat <- cbind(
+  rep(1:5, each = 100),
+  as.vector(replicate(5, simulate_burst(100, prob, kappa, mu, phi)))
+)
