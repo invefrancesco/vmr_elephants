@@ -1,8 +1,8 @@
-#' # Simulation
+#' # data simulation
 #'
-#' This file contains the code to simulate the data
+#' this script implement the functions to simulate data from a circular mar
+#' model using von mises distributions.
 
-rm(list = ls())
 pacman::p_load(
   circular
 )
@@ -10,7 +10,17 @@ pacman::p_load(
 # --------------------------------------------------------------------------- #
 #   AUXILIARY FUNCTIONS
 # --------------------------------------------------------------------------- #
-# COMMENT: explain the matrix tau
+# --- get_tau ---
+#'
+#' @description
+#' Gives a matrix where each cell contains the circular deviation at lag h for
+#' component k.
+#'
+#' @param t the current time
+#' @param K the number of mixture components
+#' @param h the autoregressive order
+#' @param mu the non-conditional mean
+
 get_tau <- function(t, K, h, x, mu) {
   tau <- matrix(ncol = K, nrow = h)
   for (g in 1:h) {
@@ -23,7 +33,17 @@ get_tau <- function(t, K, h, x, mu) {
   tau
 }
 
-# COMMENT: explain the matrix upsilon
+# --- get_upsilon ---
+#'
+#' @description
+#' Gives a matrix where each cell contains the circular deviation at lag h for
+#' component k scaled by concentration kappa.
+#'
+#' @param t the current time
+#' @param K the number of mixture components
+#' @param h the autoregressive order
+#' @param mu the non-conditional mean
+#'
 get_upsilon <- function(t, K, h, x, mu, kappa) {
   upsilon <- matrix(ncol = K, nrow = h)
   for (g in 1:h) {
@@ -39,9 +59,12 @@ get_upsilon <- function(t, K, h, x, mu, kappa) {
 # --------------------------------------------------------------------------- #
 #   MAIN SIMULATION FUNCTION
 # --------------------------------------------------------------------------- #
-simulate_burst <- function(n, prob, kappa, mu, phi) {
+# --- simulate_burst ---
+#'
+#'
+simulate_burst <- function(n, prob, kappa, mu, arcoef) {
   K <- length(prob) # Number of mixture components
-  h <- nrow(phi) # Autoregressive order
+  h <- nrow(arcoef) # Autoregressive order
 
   # --- Init time varying parameters ---
   kappa.t <- matrix(ncol = K, nrow = n)
@@ -57,42 +80,16 @@ simulate_burst <- function(n, prob, kappa, mu, phi) {
   x <- numeric(n)
   x[1] <- circular::rvonmises(1, mu = mu[z[1]], kappa = kappa[z[1]])
 
-  # --- Title here ---
+  # --- Sampling for the time steps 2:n ---
   for (t in 2:n) {
-    tau <- get_tau((t - 1), K, h, x, mu)
-    kappa.t[t, ] <- sqrt(kappa^2 + colSums(phi * tau)^2)
+    tau <- get_tau(t, K, h, x, mu)
+    kappa.t[t, ] <- sqrt(kappa^2 + colSums(arcoef * tau)^2)
 
-    upsilon <- get_upsilon((t - 1), K, h, x, mu, kappa)
-    mu.t[t, ] <- mu + atan(colSums(phi * upsilon))
+    upsilon <- get_upsilon(t, K, h, x, mu, kappa)
+    mu.t[t, ] <- mu + atan(colSums(arcoef * upsilon))
 
     x[t] <- circular::rvonmises(1, mu = mu.t[t, z[t]], kappa = kappa.t[t, z[t]])
   }
 
   x
 }
-
-# --------------------------------------------------------------------------- #
-#   TRIAL PARAMETERS AND SIMULATION
-# --------------------------------------------------------------------------- #
-
-prob <- c(0.25, 0.75) # Mixing probabilities for the latent states (Z)
-
-kappa <- c(8, 10) # Unconditional concentrations
-mu <- c(0, pi) # Unconditional means
-
-# A matrix h * K where h is the autoregressive order and K is the number of
-# mixture components
-phi <- matrix( # Autoregressive parameters
-  c(
-    0.05, 0.05,
-    0.025, 0.025,
-    0.01, 0.01
-  ),
-  ncol = 2, byrow = TRUE
-)
-
-set.seed(1234)
-dat <- cbind(
-  rep(1:5, each = 100),
-  as.vector(replicate(5, simulate_burst(100, prob, kappa, mu, phi)))
-)
