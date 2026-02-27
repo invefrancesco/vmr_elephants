@@ -20,14 +20,20 @@ mu <- c(0, pi) # Unconditional means
 # mixture components
 arcoef <- matrix( # Autoregressive parameters
   c(
-    1, 1
+    0.5, 0.5,
+    0.2, 0.2
   ),
   ncol = 2, byrow = TRUE
 )
 
 set.seed(1234)
-burst <- rep(5, each = 100)
+
+burst <- rep(1:5, each = 100)
 x <- as.vector(replicate(5, simulate_burst(100, prob, kappa, mu, arcoef)))
 
-fit <- fit_cmar(x, burst, K = 2, h = 1)
+fit <- fit_cmar(x, burst, K = 2, h = 1, tol = 1e-6)
+summary(fit)
 plot(fit$history)
+
+# TODO
+# [ ]

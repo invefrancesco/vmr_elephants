@@ -7,7 +7,54 @@
 pacman::p_load(
   circular
 )
-source("code/fun_simulation.R")
+# --------------------------------------------------------------------------- #
+#   AUXILIARY FUNCTIONS
+# --------------------------------------------------------------------------- #
+# --- get.tau.em ---
+#'
+#' @description
+#' Gives a matrix where each cell contains the circular deviation at lag h for
+#' component k.
+#'
+#' @param t the current time
+#' @param K the number of mixture components
+#' @param h the autoregressive order
+#' @param mu the non-conditional mean
+
+get.tau.em <- function(t, K, h, x, mu) {
+  tau <- matrix(ncol = K, nrow = h)
+  for (g in 1:h) {
+    ifelse(
+      t > g,
+      tau[g, ] <- sin(x[t - g] - mu),
+      tau[g, ] <- NA
+    )
+  }
+  tau
+}
+
+# --- get.upsilon.em ---
+#'
+#' @description
+#' Gives a matrix where each cell contains the circular deviation at lag h for
+#' component k scaled by concentration kappa.
+#'
+#' @param t the current time
+#' @param K the number of mixture components
+#' @param h the autoregressive order
+#' @param mu the non-conditional mean
+#'
+get.upsilon.em <- function(t, K, h, x, mu, kappa) {
+  upsilon <- matrix(ncol = K, nrow = h)
+  for (g in 1:h) {
+    ifelse(
+      t > g,
+      upsilon[g, ] <- sin(x[t - g] - mu) / kappa,
+      upsilon[g, ] <- NA
+    )
+  }
+  upsilon
+}
 
 # --------------------------------------------------------------------------- #
 #   LIKELIHOOD FUNCTION
@@ -23,6 +70,7 @@ loglik <- function(param, prob, x, burst, K, h) {
 
   kappa.t <- list()
   mu.t <- list()
+  x.tmp <- list()
 
   # --- Dynamic parameters per burst ---
   for (b in unique(burst)) {
@@ -32,21 +80,24 @@ loglik <- function(param, prob, x, burst, K, h) {
     mu.tmp <- matrix(nrow = length(x.b), ncol = K)
 
     for (t in seq_along(x.b)) {
-      tau <- get_tau(t, K, h, x.b, mu)
-      upsilon <- get_upsilon(t, K, h, x.b, mu, kappa)
+      tau <- get.tau.em(t, K, h, x.b, mu)
+      upsilon <- get.upsilon.em(t, K, h, x.b, mu, kappa)
 
       # --- Conditional updates ---
-      kappa.tmp[t, ] <- sqrt(kappa^2 + colSums(arcoef * tau)^2)
+      # colSums is the equivalent of diag(tau %*% t(arcoef))
+      kappa.tmp[t, ] <- sqrt(kappa^2 + (colSums(arcoef * tau))^2)
       mu.tmp[t, ] <- mu + atan(colSums(arcoef * upsilon))
     }
 
-    kappa.t[[b]] <- kappa.tmp
-    mu.t[[b]] <- mu.tmp
+    kappa.t[[b]] <- kappa.tmp[(h + 1):length(x.b), ]
+    mu.t[[b]] <- mu.tmp[(h + 1):length(x.b), ]
+    x.tmp[[b]] <- x.b[(h + 1):length(x.b)]
   }
 
   # --- Flatten lists to match original vector length ---
   kappa.t <- do.call(rbind, kappa.t)
   mu.t <- do.call(rbind, mu.t)
+  x <- unlist(x.tmp)
 
   # --- Likelihood matrix (observing x[i] given param[k]) ---
   l <- matrix(ncol = K, nrow = length(x))
@@ -76,6 +127,7 @@ Q <- function(param, x, burst, w, K, h) {
 
   kappa.t <- list()
   mu.t <- list()
+  x.tmp <- list()
 
   # --- Dynamic parameters per burst ---
   for (b in unique(burst)) {
@@ -85,21 +137,23 @@ Q <- function(param, x, burst, w, K, h) {
     mu.tmp <- matrix(nrow = length(x.b), ncol = K)
 
     for (t in seq_along(x.b)) {
-      tau <- get_tau(t, K, h, x.b, mu)
-      upsilon <- get_upsilon(t, K, h, x.b, mu, kappa)
+      tau <- get.tau.em(t, K, h, x.b, mu)
+      upsilon <- get.upsilon.em(t, K, h, x.b, mu, kappa)
 
       # --- Conditional updates ---
-      kappa.tmp[t, ] <- sqrt(kappa^2 + colSums(arcoef * tau)^2)
+      kappa.tmp[t, ] <- sqrt(kappa^2 + (colSums(arcoef * tau))^2)
       mu.tmp[t, ] <- mu + atan(colSums(arcoef * upsilon))
     }
 
-    kappa.t[[b]] <- kappa.tmp
-    mu.t[[b]] <- mu.tmp
+    kappa.t[[b]] <- kappa.tmp[(h + 1):length(x.b), ]
+    mu.t[[b]] <- mu.tmp[(h + 1):length(x.b), ]
+    x.tmp[[b]] <- x.b[(h + 1):length(x.b)]
   }
 
   # --- Flatten lists to match original vector length ---
   kappa.t <- do.call(rbind, kappa.t)
   mu.t <- do.call(rbind, mu.t)
+  x <- unlist(x.tmp)
 
   # --- Q function matrix (weighted log-density) ---
   Q <- matrix(ncol = K, nrow = length(x))
