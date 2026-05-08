@@ -357,3 +357,70 @@ print.summary.cmar <- function(x, ...) {
   cat("iterations: ", x$iterations, "\n")
   cat("==============================================\n")
 }
+
+
+# TMP
+K <- 2
+h <- 3
+n <- length(x)
+zzz <- list(
+  mu = c(0, pi),
+  kappa = c(10, 12),
+  prob = c(0.4, 0.6),
+  arcoef = matrix(0.1, nrow = h, ncol = K)
+)
+
+
+for (b in unique(burst)) {
+  x.b <- x[burst == b]
+
+  kappa.tmp <- matrix(nrow = length(x.b), ncol = K)
+  mu.tmp <- matrix(nrow = length(x.b), ncol = K)
+
+  for (t in seq_along(x.b)) {
+    tau <- get.tau.em(t, K, h, x.b, mu)
+    upsilon <- get.upsilon.em(t, K, h, x.b, mu, kappa)
+
+    # --- Conditional updates ---
+    kappa.tmp[t, ] <- sqrt(kappa^2 + (colSums(arcoef * tau))^2)
+    mu.tmp[t, ] <- mu + atan(colSums(arcoef * upsilon))
+  }
+
+  kappa.t[[b]] <- kappa.tmp[(h + 1):length(x.b), ]
+  mu.t[[b]] <- mu.tmp[(h + 1):length(x.b), ]
+  x.tmp[[b]] <- x.b[(h + 1):length(x.b)]
+}
+
+kappa.t <- list()
+mu.t <- list()
+x.tmp <- list()
+
+for (b in unique(burst)) {
+  x.b <- x[burst == b]
+  kappa.b <- matrix(ncol = K, nrow = length(x.b))
+  mu.b <- matrix(ncol = K, nrow = length(x.b))
+
+  fo <- sapply(1:h, function(g) head(c(rep(NA, g), x.b), n = length(x.b)))
+  fo[is.na(foo)] <- 0
+  for (k in 1:K) {
+    foo <- sin(fo - zzz$mu[k]) %*% zzz$arcoef[, k]
+    kappa.b[, k] <- sqrt(zzz$kappa[k]^2 + foo^2)
+    mu.b[, k] <- zzz$mu[k] + atan(foo / zzz$kappa[k])
+  }
+
+  kappa.t[[b]] <- kappa.b[(h + 1):length(x.b), , drop = FALSE]
+  mu.t[[b]] <- mu.b[(h + 1):length(x.b), , drop = FALSE]
+  x.tmp[[b]] <- x.b[(h + 1):length(x.b)]
+}
+
+# --- Flatten lists to match original vector length ---
+kappa.t <- do.call(rbind, kappa.t)
+mu.t <- do.call(rbind, mu.t)
+x <- unlist(x.tmp)
+
+# --- Compute Likelihood ---
+l <- matrix(NA, nrow = length(x), ncol = K)
+-sum(log(
+  (exp(kappa.t * (cos(x - mu.t) - 1)) /
+    (2 * pi * besselI(kappa.t, 0, expon.scaled = TRUE))) %*% zzz$prob
+))

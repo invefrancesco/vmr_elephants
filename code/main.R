@@ -13,25 +13,28 @@ source("code/fun_simulation.R")
 # --------------------------------------------------------------------------- #
 
 # --- Trial parameters ---
-prob <- c(0.25, 0.75) # Mixing probabilities
-kappa <- c(5, 8) # Unconditional concentrations
-mu <- c(0, pi) # Unconditional means
-
-# A matrix h * K where h is the autoregressive order and K is the number of
-# mixture components
-arcoef <- matrix( # Autoregressive parameters
-  c(0.1, 0.1),
-  ncol = 2, byrow = TRUE
+K <- 2
+h <- 3
+mod <- list(
+  K = K,
+  h = h,
+  mu = c(0, pi),
+  kappa = c(10, 12),
+  prob = c(0.4, 0.6),
+  arcoef = matrix(0.1, nrow = h, ncol = K)
 )
 
+# 3. Ora puoi lanciare la simulazione
 set.seed(1234)
+x <- sim.burst(n = 10, mod = mod)
 
-burst <- rep(1:100, each = 500)
-x <- as.vector(replicate(100, simulate_burst(500, prob, kappa, mu, arcoef)))
+burst <- rep(1:5, each = 10)
+x <- as.vector(replicate(5, sim.burst(n = 10, mod = mod, burn = 500)))
+
 
 fit <- fit_cmar(x, burst, K = 2, h = 1, tol = 1e-4)
 summary(fit)
 plot(fit$history)
 
 # TODO
-# [ ]
+# [ ] Salvare la componente reale in sim.burst$z

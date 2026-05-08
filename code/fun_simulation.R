@@ -27,10 +27,10 @@ sim.burst <- function(n, mod, burn = 500) {
   n <- n + burn
   # --- Init time varying parameters ---
   kappa.t <- matrix(ncol = mod$K, nrow = n)
-  kappa.t[1:mod$h, ] <- mod$kappa
+  kappa.t[1:mod$h, ] <- matrix(mod$kappa, nrow = mod$h, ncol = mod$K, byrow = TRUE)
 
   mu.t <- matrix(ncol = mod$K, nrow = n)
-  mu.t[1:mod$h, ] <- mod$mu
+  mu.t[1:mod$h, ] <- matrix(mod$kappa, nrow = mod$h, ncol = mod$K, byrow = TRUE)
 
   # --- Latent variable z ---
   z <- sample(1:mod$K, n, replace = TRUE, mod$prob)
