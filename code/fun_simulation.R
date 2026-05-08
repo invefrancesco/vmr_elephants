@@ -44,7 +44,7 @@ sim.burst <- function(n, mod, burn = 500) {
   # --- Sampling for the time steps h:n ---
   for (t in (mod$h + 1):n) {
     for (k in 1:mod$K) {
-      foo <- x[(t - 1):(t - h)]
+      foo <- x[(t - 1):(t - mod$h)]
       foo <- as.numeric(mod$arcoef[, k] %*% sin(foo - mod$mu[k]))
       kappa.t[t, k] <- sqrt(mod$kappa[k]^2 + foo^2)
       mu.t[t, k] <- mod$mu[k] + atan(foo / mod$kappa[k])
