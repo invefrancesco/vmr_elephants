@@ -7,190 +7,104 @@
 pacman::p_load(
   circular
 )
+
 # --------------------------------------------------------------------------- #
 #   AUXILIARY FUNCTIONS
 # --------------------------------------------------------------------------- #
-# --- get.tau.em ---
-#'
-#' @description
-#' Gives a matrix where each cell contains the circular deviation at lag h for
-#' component k.
-#'
-#' @param t the current time
-#' @param K the number of mixture components
-#' @param h the autoregressive order
-#' @param mu the non-conditional mean
+# Function to get lags and target vector x.t
+get.dat <- function(x, burst, h) {
+  lag <- list()
+  x.t <- list()
+  for (b in unique(burst)) {
+    x.b <- x[burst == b]
+    foo <- sapply(1:h, function(g) head(c(rep(NA, g), x.b), n = length(x.b)))
 
-get.tau.em <- function(t, K, h, x, mu) {
-  tau <- matrix(ncol = K, nrow = h)
-  for (g in 1:h) {
-    ifelse(
-      t > g,
-      tau[g, ] <- sin(x[t - g] - mu),
-      tau[g, ] <- NA
-    )
+    lag[[as.character(b)]] <- foo[complete.cases(foo), , drop = FALSE]
+    x.t[[as.character(b)]] <- x.b[complete.cases(foo)]
   }
-  tau
+  list(
+    lag = do.call(rbind, lag),
+    x.t = unlist(x.t)
+  )
 }
 
-# --- get.upsilon.em ---
-#'
-#' @description
-#' Gives a matrix where each cell contains the circular deviation at lag h for
-#' component k scaled by concentration kappa.
-#'
-#' @param t the current time
-#' @param K the number of mixture components
-#' @param h the autoregressive order
-#' @param mu the non-conditional mean
-#'
-get.upsilon.em <- function(t, K, h, x, mu, kappa) {
-  upsilon <- matrix(ncol = K, nrow = h)
-  for (g in 1:h) {
-    ifelse(
-      t > g,
-      upsilon[g, ] <- sin(x[t - g] - mu) / kappa,
-      upsilon[g, ] <- NA
-    )
-  }
-  upsilon
-}
+# Function to transform natural to working parameters
+n2w <- function(mu, kappa, arcoef) c(mu, log(kappa), arcoef)
 
+# Function to transform working to natural parameters
+w2n <- function(wpar, K, h) {
+  mu <- wpar[1:K] %% (2 * pi)
+  kappa <- exp(wpar[(K + 1):(2 * K)])
+  arcoef <- matrix(wpar[(2 * K + 1):(2 * K + (h * K))], nrow = h, ncol = K)
+  list(mu = mu, kappa = kappa, arcoef = arcoef)
+}
 # --------------------------------------------------------------------------- #
 #   LIKELIHOOD FUNCTION
 # --------------------------------------------------------------------------- #
-loglik <- function(param, prob, x, burst, K, h) {
-  # --- Unpack parameters ---
-  mu <- param[1:K]
-  kappa <- exp(param[(K + 1):(2 * K)])
-  arcoef <- matrix(
-    param[(2 * K + 1):((2 * K) + h * K)],
-    nrow = h, ncol = K, byrow = TRUE
-  )
+llk <- function(x.t, lag, zzz) {
+  K <- length(zzz$mu)
 
-  kappa.t <- list()
-  mu.t <- list()
-  x.tmp <- list()
-
-  # --- Dynamic parameters per burst ---
-  for (b in unique(burst)) {
-    x.b <- x[burst == b]
-
-    kappa.tmp <- matrix(nrow = length(x.b), ncol = K)
-    mu.tmp <- matrix(nrow = length(x.b), ncol = K)
-
-    for (t in seq_along(x.b)) {
-      tau <- get.tau.em(t, K, h, x.b, mu)
-      upsilon <- get.upsilon.em(t, K, h, x.b, mu, kappa)
-
-      # --- Conditional updates ---
-      # colSums is the equivalent of diag(tau %*% t(arcoef))
-      kappa.tmp[t, ] <- sqrt(kappa^2 + (colSums(arcoef * tau))^2)
-      mu.tmp[t, ] <- mu + atan(colSums(arcoef * upsilon))
-    }
-
-    kappa.t[[b]] <- kappa.tmp[(h + 1):length(x.b), ]
-    mu.t[[b]] <- mu.tmp[(h + 1):length(x.b), ]
-    x.tmp[[b]] <- x.b[(h + 1):length(x.b)]
+  # time dependent mu and k
+  kappa.t <- matrix(ncol = K, nrow = nrow(lag))
+  mu.t <- matrix(ncol = K, nrow = nrow(lag))
+  for (k in 1:K) {
+    foo <- sin(lag - zzz$mu[k]) %*% zzz$arcoef[, k]
+    kappa.t[, k] <- sqrt(zzz$kappa[k]^2 + foo^2)
+    mu.t[, k] <- zzz$mu[k] + atan(foo / zzz$kappa[k])
   }
+  dens <- (exp(kappa.t * (cos(x.t - mu.t) - 1)) /
+    (2 * pi * besselI(kappa.t, 0, expon.scaled = TRUE)))
 
-  # --- Flatten lists to match original vector length ---
-  kappa.t <- do.call(rbind, kappa.t)
-  mu.t <- do.call(rbind, mu.t)
-  x <- unlist(x.tmp)
-
-  # --- Likelihood matrix (observing x[i] given param[k]) ---
-  l <- matrix(ncol = K, nrow = length(x))
-  for (k in seq_len(K)) {
-    for (i in seq_along(x)) {
-      l[i, k] <- prob[k] * circular::dvonmises(x[i], mu.t[i, k], kappa.t[i, k])
-    }
-  }
-
+  # -llk
   list(
-    l,
-    sum(log(rowSums(l)))
+    dens = dens,
+    llk = sum(log(dens %*% zzz$prob))
   )
 }
 
 # --------------------------------------------------------------------------- #
 #   Q FUNCTION
 # --------------------------------------------------------------------------- #
-Q <- function(param, x, burst, w, K, h) {
+Q <- function(x.t, lag, wpar, w, K, h) {
   # --- Unpack parameters ---
-  mu <- param[1:K]
-  kappa <- exp(param[(K + 1):(2 * K)])
-  arcoef <- matrix(
-    param[(2 * K + 1):((2 * K) + h * K)],
-    nrow = h, ncol = K, byrow = TRUE
-  )
+  zzz <- w2n(wpar, K, h)
 
-  kappa.t <- list()
-  mu.t <- list()
-  x.tmp <- list()
-
-  # --- Dynamic parameters per burst ---
-  for (b in unique(burst)) {
-    x.b <- x[burst == b]
-
-    kappa.tmp <- matrix(nrow = length(x.b), ncol = K)
-    mu.tmp <- matrix(nrow = length(x.b), ncol = K)
-
-    for (t in seq_along(x.b)) {
-      tau <- get.tau.em(t, K, h, x.b, mu)
-      upsilon <- get.upsilon.em(t, K, h, x.b, mu, kappa)
-
-      # --- Conditional updates ---
-      kappa.tmp[t, ] <- sqrt(kappa^2 + (colSums(arcoef * tau))^2)
-      mu.tmp[t, ] <- mu + atan(colSums(arcoef * upsilon))
-    }
-
-    kappa.t[[b]] <- kappa.tmp[(h + 1):length(x.b), ]
-    mu.t[[b]] <- mu.tmp[(h + 1):length(x.b), ]
-    x.tmp[[b]] <- x.b[(h + 1):length(x.b)]
+  # time dependent mu and k
+  kappa.t <- matrix(ncol = K, nrow = nrow(lag))
+  mu.t <- matrix(ncol = K, nrow = nrow(lag))
+  for (k in 1:K) {
+    foo <- sin(lag - zzz$mu[k]) %*% zzz$arcoef[, k]
+    kappa.t[, k] <- sqrt(zzz$kappa[k]^2 + foo^2)
+    mu.t[, k] <- zzz$mu[k] + atan(foo / zzz$kappa[k])
   }
-
-  # --- Flatten lists to match original vector length ---
-  kappa.t <- do.call(rbind, kappa.t)
-  mu.t <- do.call(rbind, mu.t)
-  x <- unlist(x.tmp)
 
   # --- Q function matrix (weighted log-density) ---
-  Q <- matrix(ncol = K, nrow = length(x))
-  for (k in seq_len(K)) {
-    for (i in seq_along(x)) {
-      Q[i, k] <- w[i, k] *
-        circular::dvonmises(x[i], mu.t[i, k], kappa.t[i, k], log = TRUE)
-    }
-  }
+  # log(f) = kappa * (cos(x - mu) - 1) - log(2 * pi * besselI)
+  ldens <- kappa.t * (cos(x.t - mu.t) - 1) -
+    log(2 * pi * besselI(kappa.t, 0, expon.scaled = TRUE))
 
-  -sum(Q) # return negative to maximize via optim
+  -sum(w * ldens)
 }
-
 # --------------------------------------------------------------------------- #
-#   MAIN FUNCTION (EM ALGORITHM)
+#   MAIN FUNCTION
 # --------------------------------------------------------------------------- #
-#' @description
-#' fit circular mar model via em algorithm
-#'
-#' @param x circular data vector
-#' @param burst vector identifying independent trajectories
-#' @param K number of mixture components
-#' @param h autoregressive lag order
-#' @param tol convergence tolerance (delta log-likelihood)
-#' @param maxit maximum em iterations
-#' @return object of class cmar with estimated parameters
-fit_cmar <- function(x, burst, K, h, tol = 1e-4, maxit = 100) {
-  # init
-  prob <- rep(1 / K, K)
-  mu <- runif(K, 0, 2 * pi)
-  lkappa <- log(runif(K, 1, 5))
-  arcoef <- runif(h * K, 0, 0.5)
 
-  param <- c(mu, lkappa, arcoef)
+cmar <- function(x, burst, K, h, tol = 1e-4, maxit = 100) {
+  # Init data
+  dat <- get.dat(x, burst, h)
+  x.t <- dat$x.t
+  lag <- dat$lag
+
+  # Init parameters
+  zzz <- list(
+    mu = runif(K, 0, 2 * pi),
+    kappa = runif(K, 0, 10),
+    arcoef = matrix(runif(h * K, 0, .5), nrow = h, ncol = K),
+    prob = rep(1 / K, K)
+  )
 
   l <- -Inf
-  l[2] <- loglik(param, prob, x, burst, K, h)[[2]]
+  l[2] <- llk(x.t, lag, zzz)$llk
   it <- 2
   converged <- FALSE
 
@@ -199,34 +113,36 @@ fit_cmar <- function(x, burst, K, h, tol = 1e-4, maxit = 100) {
   # --- EM loop ---
   while (it < maxit && !converged) {
     # --- E-step ---
-    f <- loglik(param, prob, x, burst, K, h)[[1]]
-    w <- f / rowSums(f)
+    dens <- llk(x.t, lag, zzz)$dens
+    w <- (dens * rep(zzz$prob, each = nrow(dens))) /
+      rowSums(dens * rep(zzz$prob, each = nrow(dens)))
 
     # --- M-step ---
-    prob <- colSums(w) / sum(colSums(w))
-
+    wpar <- n2w(zzz$mu, zzz$kappa, zzz$arcoef)
     init <- Sys.time()
     opt <- optim(
-      par = param,
+      par = wpar,
       fn = Q,
-      x = x,
+      x.t = x.t,
+      lag = lag,
       w = w,
-      burst = burst,
       K = K, h = h,
+      method = "BFGS",
       control = list(maxit = 10000)
     )
     time <- Sys.time() - init
 
-    if (opt$convergence != 0) { # convergence check
+    if (opt$convergence != 0) { # Convergence check
       warning("Iteration: ", it, "; Convergence: ", opt$convergence)
     }
 
-    # --- Parameters update ...
-    param <- opt$par
+    # --- Parameters update ---
+    zzz <- w2n(opt$par, K, h)
+    zzz$prob <- colSums(w) / sum(colSums(w))
     it <- it + 1
-    l[it] <- loglik(param, prob, x, burst, K, h)[[2]]
+    l[it] <- llk(x.t, lag, zzz)$llk
 
-    cat(sprintf( # message
+    cat(sprintf( # Message
       "Iteration %d completed
       LogLik: %.4f
       Delta: %.6f
@@ -241,186 +157,26 @@ fit_cmar <- function(x, burst, K, h, tol = 1e-4, maxit = 100) {
     if (abs(l[it] - l[it - 1]) < tol) converged <- TRUE
   }
 
-  # --- Post processing ---
-  # transform log-kappa back to standard kappa
-  param[(K + 1):(2 * K)] <- exp(param[(K + 1):(2 * K)]) # transform log-kappa
+  # --- Output ---
+  n.obs <- length(x.t)
+  # K (mu) + K (kappa) + h*K (ar) + (K-1) (prob)
+  n.par <- K + K + (h * K) + (K - 1)
+  l.hat <- l[it]
 
-  names(param) <- c(
-    paste0("mu", 1:K),
-    paste0("kappa", 1:K),
-    paste0("ar.l", rep(1:h, each = K), ".c", rep(1:K, times = h))
+  obj <- list(
+    params = zzz, # Parametri naturali finali
+    llk = l.hat, # Log-likelihood finale
+    iter = it - 1, # Numero di iterazioni effettuate
+    trace = l[2:it], # Storia della verosimiglianza per check convergenza
+    weights = w, # Responsabilità (per clustering/segmentazione)
+    criteria = list(
+      aic = -2 * l.hat + 2 * n.par,
+      bic = -2 * l.hat + log(n.obs) * n.par,
+      npar = n.par
+    ),
+    call = list(K = K, h = h, tol = tol)
   )
 
-  # --- Output object ---
-  res <- list(
-    coefficients = param,
-    mixing_probs = prob,
-    loglik       = l[it],
-    history      = l,
-    iterations   = it,
-    convergence  = converged
-  )
-
-  class(res) <- "cmar"
-  return(res)
+  class(obj) <- "cmar"
+  obj
 }
-
-# --------------------------------------------------------------------------- #
-#   S3 METHODS (OUTPUT FORMATTING)
-# --------------------------------------------------------------------------- #
-
-#' print method for cmar objects
-#'
-#' @param x cmar object
-#' @param ... further arguments passed to or from other methods
-#' @export
-print.cmar <- function(x, ...) {
-  cat("\ncircular mixture autoregressive model\n")
-  cat("-------------------------------------\n")
-
-  cat("mixing probabilities:\n")
-  m_probs <- matrix(x$mixing_probs, nrow = 1)
-  colnames(m_probs) <- paste0("comp.", seq_along(x$mixing_probs))
-  rownames(m_probs) <- "prob."
-  print(round(m_probs, 4))
-
-  cat("\ncoefficients:\n")
-  # tabella pulita per la ui
-  coef_df <- data.frame(
-    parameter = names(x$coefficients),
-    value     = round(x$coefficients, 4)
-  )
-  print(coef_df, row.names = FALSE, right = FALSE)
-
-  cat("\nlog-likelihood:", round(x$loglik, 4), "\n")
-}
-
-#' summary method for cmar objects
-#'
-#' @param object cmar object
-#' @param ... further arguments passed to or from other methods
-#' @export
-summary.cmar <- function(object, ...) {
-  # param count: (K - 1) for weights + length of all other params
-  K <- length(object$mixing_probs)
-  n_param <- (K - 1) + length(object$coefficients)
-
-  # aic calculation
-  aic <- 2 * n_param - 2 * object$loglik
-
-  # create summary object
-  ans <- list(
-    coefficients = object$coefficients,
-    mixing_probs = object$mixing_probs,
-    loglik       = object$loglik,
-    iterations   = object$iterations,
-    convergence  = object$convergence,
-    aic          = aic,
-    n_param      = n_param
-  )
-
-  class(ans) <- "summary.cmar"
-  return(ans)
-}
-
-#' print method for summary.cmar objects
-#'
-#' @param x summary.cmar object
-#' @param ... further arguments passed to or from other methods
-#' @export
-print.summary.cmar <- function(x, ...) {
-  cat("\n==============================================\n")
-  cat("   circular mixture autoregressive model\n")
-  cat("==============================================\n")
-
-  cat("\nmodel fit statistics:\n")
-  cat(sprintf("log-likelihood: %.4f\n", x$loglik))
-  cat(sprintf("aic:            %.4f\n", x$aic))
-  cat(sprintf("parameters:     %d\n", x$n_param))
-
-  cat("\nmixing probabilities:\n")
-  m_probs <- matrix(x$mixing_probs, nrow = 1)
-  colnames(m_probs) <- paste0("comp.", seq_along(x$mixing_probs))
-  rownames(m_probs) <- "prob."
-  print(round(m_probs, 4))
-
-  cat("\nestimated coefficients:\n")
-  # tabella pulita per la ui
-  coef_df <- data.frame(
-    parameter = names(x$coefficients),
-    value     = round(x$coefficients, 4)
-  )
-  print(coef_df, row.names = FALSE, right = FALSE)
-
-  cat("\nconvergence details:\n")
-  cat("converged:  ", x$convergence, "\n")
-  cat("iterations: ", x$iterations, "\n")
-  cat("==============================================\n")
-}
-
-
-# TMP
-K <- 2
-h <- 3
-n <- length(x)
-zzz <- list(
-  mu = c(0, pi),
-  kappa = c(10, 12),
-  prob = c(0.4, 0.6),
-  arcoef = matrix(0.1, nrow = h, ncol = K)
-)
-
-
-for (b in unique(burst)) {
-  x.b <- x[burst == b]
-
-  kappa.tmp <- matrix(nrow = length(x.b), ncol = K)
-  mu.tmp <- matrix(nrow = length(x.b), ncol = K)
-
-  for (t in seq_along(x.b)) {
-    tau <- get.tau.em(t, K, h, x.b, mu)
-    upsilon <- get.upsilon.em(t, K, h, x.b, mu, kappa)
-
-    # --- Conditional updates ---
-    kappa.tmp[t, ] <- sqrt(kappa^2 + (colSums(arcoef * tau))^2)
-    mu.tmp[t, ] <- mu + atan(colSums(arcoef * upsilon))
-  }
-
-  kappa.t[[b]] <- kappa.tmp[(h + 1):length(x.b), ]
-  mu.t[[b]] <- mu.tmp[(h + 1):length(x.b), ]
-  x.tmp[[b]] <- x.b[(h + 1):length(x.b)]
-}
-
-kappa.t <- list()
-mu.t <- list()
-x.tmp <- list()
-
-for (b in unique(burst)) {
-  x.b <- x[burst == b]
-  kappa.b <- matrix(ncol = K, nrow = length(x.b))
-  mu.b <- matrix(ncol = K, nrow = length(x.b))
-
-  fo <- sapply(1:h, function(g) head(c(rep(NA, g), x.b), n = length(x.b)))
-  fo[is.na(foo)] <- 0
-  for (k in 1:K) {
-    foo <- sin(fo - zzz$mu[k]) %*% zzz$arcoef[, k]
-    kappa.b[, k] <- sqrt(zzz$kappa[k]^2 + foo^2)
-    mu.b[, k] <- zzz$mu[k] + atan(foo / zzz$kappa[k])
-  }
-
-  kappa.t[[b]] <- kappa.b[(h + 1):length(x.b), , drop = FALSE]
-  mu.t[[b]] <- mu.b[(h + 1):length(x.b), , drop = FALSE]
-  x.tmp[[b]] <- x.b[(h + 1):length(x.b)]
-}
-
-# --- Flatten lists to match original vector length ---
-kappa.t <- do.call(rbind, kappa.t)
-mu.t <- do.call(rbind, mu.t)
-x <- unlist(x.tmp)
-
-# --- Compute Likelihood ---
-l <- matrix(NA, nrow = length(x), ncol = K)
--sum(log(
-  (exp(kappa.t * (cos(x - mu.t) - 1)) /
-    (2 * pi * besselI(kappa.t, 0, expon.scaled = TRUE))) %*% zzz$prob
-))

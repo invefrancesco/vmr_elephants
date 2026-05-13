@@ -9,7 +9,7 @@ pacman::p_load(
 #' --------------------------------------------------------------------------- #
 #'   MAIN SIMULATION FUNCTION
 #' --------------------------------------------------------------------------- #
-#' --- simulate_burst ---
+#' --- sim.burst ---
 #' Generate a single trajectory from a Circular MAR model
 #'
 #' @param n number of observations (after burn-in)
@@ -30,7 +30,7 @@ sim.burst <- function(n, mod, burn = 500) {
   kappa.t[1:mod$h, ] <- matrix(mod$kappa, nrow = mod$h, ncol = mod$K, byrow = TRUE)
 
   mu.t <- matrix(ncol = mod$K, nrow = n)
-  mu.t[1:mod$h, ] <- matrix(mod$kappa, nrow = mod$h, ncol = mod$K, byrow = TRUE)
+  mu.t[1:mod$h, ] <- matrix(mod$mu, nrow = mod$h, ncol = mod$K, byrow = TRUE)
 
   # --- Latent variable z ---
   z <- sample(1:mod$K, n, replace = TRUE, mod$prob)
@@ -52,5 +52,23 @@ sim.burst <- function(n, mod, burn = 500) {
     x[t] <- circular::rvonmises(1, mu = mu.t[t, z[t]], kappa = kappa.t[t, z[t]])
   }
   x <- x[(burn + 1):length(x)]
-  x
+  z <- z[(burn + 1):length(z)]
+  list(x = x, z = z)
+}
+
+n <- rpois(5, 10)
+
+# --- sim.data ---
+#' Generate a dataset from a Circular MAR model
+#'
+sim.data <- function(n, mod) {
+  dat <- lapply(1:length(n), function(b) {
+    sim <- sim.burst(n = n[b], mod = mod)
+    data.frame(
+      burst = rep(b, n[b]),
+      x = sim$x,
+      z = sim$z
+    )
+  })
+  do.call(rbind, dat)
 }
