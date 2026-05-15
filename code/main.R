@@ -3,7 +3,9 @@
 #' this is the main script.
 
 pacman::p_load(
-  circular
+  circular,
+  tidyverse,
+  sf
 )
 source("code/fun_estimation.R")
 source("code/fun_simulation.R")
@@ -12,29 +14,52 @@ source("code/fun_simulation.R")
 #   TRIAL PARAMETERS AND SIMULATION
 # --------------------------------------------------------------------------- #
 
+# --- real n ---
+load("data/elephants.RData")
+data <- data %>%
+  st_drop_geometry() %>%
+  group_by(burst_) %>%
+  summarise(tot = n()) %>%
+  select(tot)
+
+n <- data$tot
+rm(list = c("data"))
+
 # --- Trial parameters ---
 K <- 2
-h <- 3
-mod <- list(
-  K = K,
-  h = h,
+h <- 1
+
+mod1 <- list(
+  K = 2, h = 1,
   mu = c(0, pi),
-  kappa = c(10, 12),
-  prob = c(0.4, 0.6),
-  arcoef = matrix(0.1, nrow = h, ncol = K)
+  kappa = c(5, 5),
+  arcoef = matrix(c(2, -2), nrow = 1, ncol = 2),
+  prob = c(0.5, 0.5)
 )
 
-# 3. Ora puoi lanciare la simulazione
+mod2 <- list(
+  K = 2, h = 1,
+  mu = c(0, pi / 4),
+  kappa = c(1, 1.5),
+  arcoef = matrix(c(0.2, 0.2), nrow = 1, ncol = 2),
+  prob = c(0.7, 0.3)
+)
+
+mod3 <- list(
+  K = 2, h = 1,
+  mu = c(pi / 2, 3 * pi / 2),
+  kappa = c(4, 4),
+  arcoef = matrix(c(0.1, -0.8), nrow = 1, ncol = 2),
+  prob = c(0.4, 0.6)
+)
+
+# --- sim data ---
 set.seed(1234)
-x <- sim.burst(n = 10, mod = mod)
+dat1 <- sim.data(n, mod1)
+dat2 <- sim.data(n, mod2)
+dat3 <- sim.data(n, mod3)
 
-burst <- rep(1:5, each = 10)
-x <- as.vector(replicate(5, sim.burst(n = 10, mod = mod, burn = 500)))
-
-
-fit <- fit_cmar(x, burst, K = 2, h = 1, tol = 1e-4)
-summary(fit)
-plot(fit$history)
-
-# TODO
-# [ ] Salvare la componente reale in sim.burst$z
+# --- fit ---
+fit1 <- cmar.ms(dat1$x, dat1$burst, K, h)
+fit2 <- cmar.ms(dat2$x, dat2$burst, K, h, maxit = 500)
+fit3 <- cmar.ms(dat3$x, dat3$burst, K, h)

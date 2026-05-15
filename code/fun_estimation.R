@@ -5,7 +5,9 @@
 #' it handles independent bursts of circular time-series data.
 
 pacman::p_load(
-  circular
+  circular,
+  parallel,
+  foreach
 )
 
 # --------------------------------------------------------------------------- #
@@ -100,7 +102,10 @@ cmar <- function(x, burst, K, h, tol = 1e-4, maxit = 100) {
     mu = runif(K, 0, 2 * pi),
     kappa = runif(K, 0, 10),
     arcoef = matrix(runif(h * K, 0, .5), nrow = h, ncol = K),
-    prob = rep(1 / K, K)
+    prob = {
+      p <- runif(K)
+      p / sum(p)
+    }
   )
 
   l <- -Inf
@@ -164,11 +169,11 @@ cmar <- function(x, burst, K, h, tol = 1e-4, maxit = 100) {
   l.hat <- l[it]
 
   obj <- list(
-    params = zzz, # Parametri naturali finali
-    llk = l.hat, # Log-likelihood finale
-    iter = it - 1, # Numero di iterazioni effettuate
-    trace = l[2:it], # Storia della verosimiglianza per check convergenza
-    weights = w, # Responsabilità (per clustering/segmentazione)
+    params = zzz, # Parameters
+    llk = l.hat, # Log-likelihood
+    iter = it - 1, # # of iterations
+    trace = l[2:it], # Log-likelihood trace
+    weights = w, # Final weights
     criteria = list(
       aic = -2 * l.hat + 2 * n.par,
       bic = -2 * l.hat + log(n.obs) * n.par,
@@ -179,4 +184,22 @@ cmar <- function(x, burst, K, h, tol = 1e-4, maxit = 100) {
 
   class(obj) <- "cmar"
   obj
+}
+
+cmar.ms <- function(x, burst, K, h, tol = 1e-4, maxit = 100, starts = 5) {
+  fit <- list()
+  for (i in 1:starts) {
+    foo <- try(
+      cmar(x, burst, K = K, h = h, tol = tol, maxit = maxit),
+      silent = TRUE
+    )
+
+    if (inherits(foo, "try-error")) {
+      fit[[i]] <- NULL
+    } else {
+      fit[[i]] <- foo
+    }
+  }
+  fit <- fit[!sapply(fit, is.null)]
+  fit[[which.max(sapply(fit, function(f) f$llk))]]
 }

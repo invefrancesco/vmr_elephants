@@ -62,7 +62,7 @@ n <- rpois(5, 10)
 #' Generate a dataset from a Circular MAR model
 #'
 sim.data <- function(n, mod) {
-  dat <- lapply(1:length(n), function(b) {
+  dat <- lapply(seq_along(n), function(b) {
     sim <- sim.burst(n = n[b], mod = mod)
     data.frame(
       burst = rep(b, n[b]),

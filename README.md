@@ -7,6 +7,6 @@ The files are organized as follows:
 * `main.R` run a full workflow, including parameter setup, data simulation, model fitting, and results visualization
 
 TODO
-
-- [ ] Assess `arcoef` biased estimation
-- [ ] Confidence intervals
+- [ ] MultiStart
+- [ ] Remove warnings
+- [ ] Simulation study
