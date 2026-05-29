@@ -5,7 +5,7 @@
 pacman::p_load(
   circular,
   tidyverse,
-  sf
+  sf,
 )
 source("code/fun_estimation.R")
 source("code/fun_simulation.R")
@@ -59,7 +59,13 @@ dat1 <- sim.data(n, mod1)
 dat2 <- sim.data(n, mod2)
 dat3 <- sim.data(n, mod3)
 
-# --- fit ---
+# --------------------------------------------------------------------------- #
+#   ESTIMATION
+# --------------------------------------------------------------------------- #
 fit1 <- cmar.ms(dat1$x, dat1$burst, K, h)
 fit2 <- cmar.ms(dat2$x, dat2$burst, K, h, maxit = 500)
 fit3 <- cmar.ms(dat3$x, dat3$burst, K, h)
+
+# --- ARI ---
+mclust::adjustedRandIndex(tmp$z, apply(fit3$weights, 1, which.max))
+table(apply(fit3$weights, 1, which.max), tmp$z)

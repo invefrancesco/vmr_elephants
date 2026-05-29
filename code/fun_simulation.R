@@ -56,8 +56,6 @@ sim.burst <- function(n, mod, burn = 500) {
   list(x = x, z = z)
 }
 
-n <- rpois(5, 10)
-
 # --- sim.data ---
 #' Generate a dataset from a Circular MAR model
 #'
