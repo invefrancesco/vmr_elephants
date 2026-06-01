@@ -5,5 +5,4 @@ The files are organized as follows:
 * `fun_estimation.R` contains the log-likelihood function, the Q function and th EM algorithm
 * `fun_simulation.R` contains the functions for generating a sigle burst of angles.
 * `main.R` run a full workflow, including parameter setup, data simulation, model fitting, and results visualization
-
-TODO
+* `charts.R`contains the visualization suite for the project

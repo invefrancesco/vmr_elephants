@@ -14,16 +14,15 @@ source("code/fun_simulation.R")
 #   TRIAL PARAMETERS AND SIMULATION
 # --------------------------------------------------------------------------- #
 
-# --- real n ---
+# --- design from real data ---
 load("data/elephants.RData")
-data <- data %>%
-  st_drop_geometry() %>%
-  group_by(burst_) %>%
-  summarise(tot = n()) %>%
-  select(tot)
 
-n <- data$tot
-rm(list = c("data"))
+dat <- data %>%
+  arrange(id, burst_, t2_) %>%
+  mutate(id = consecutive_id(id)) %>%
+  mutate(burst = consecutive_id(burst_), .by = id) %>%
+  mutate(t = row_number(), .by = c(id, burst)) %>%
+  select(id, burst, t)
 
 # --- Trial parameters ---
 K <- 2

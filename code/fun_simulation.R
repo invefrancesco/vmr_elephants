@@ -53,20 +53,17 @@ sim.burst <- function(n, mod, burn = 500) {
   }
   x <- x[(burn + 1):length(x)]
   z <- z[(burn + 1):length(z)]
-  list(x = x, z = z)
+  list(x = as.numeric(x), z = z)
 }
 
 # --- sim.data ---
 #' Generate a dataset from a Circular MAR model
 #'
-sim.data <- function(n, mod) {
-  dat <- lapply(seq_along(n), function(b) {
-    sim <- sim.burst(n = n[b], mod = mod)
-    data.frame(
-      burst = rep(b, n[b]),
-      x = sim$x,
-      z = sim$z
-    )
-  })
-  do.call(rbind, dat)
+sim.data <- function(dat, mod, ...) {
+  dat %>%
+    dplyr::reframe(
+      suppressWarnings(dplyr::as_tibble(sim.burst(n = n(), mod = mod))),
+      .by = c(...)
+    ) %>%
+    mutate(t = row_number(), .by = c(...))
 }
