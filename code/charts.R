@@ -8,10 +8,10 @@ pacman::p_load(
 # --------------------------------------------------------------------------- #
 #   CHARTS
 # --------------------------------------------------------------------------- #
-load("data/mag26.RData")
+load("data/giu3.RData")
 load("data/elephants.RData")
 
-# --- data preparation ---
+# --- Data preparation ---
 datDgn1 <- dat1 %>%
     group_split(burst) %>%
     map_dfr(\(df) df[-1, ]) %>%
@@ -35,6 +35,24 @@ datDgn3 <- dat3 %>%
     map_dfr(\(df) df[-1, ]) %>% # Remove burst's first obs
     mutate(
         z.post = apply(fit3$weights, 1, which.max),
+        D.x = cos(x),
+        D.y = sin(x)
+    )
+
+datDgn4 <- dat4 %>%
+    group_split(burst) %>%
+    map_dfr(\(df) df[-1, ]) %>% # Remove burst's first obs
+    mutate(
+        z.post = apply(fit4$weights, 1, which.max),
+        D.x = cos(x),
+        D.y = sin(x)
+    )
+
+datDgn5 <- dat5 %>%
+    group_split(burst) %>%
+    map_dfr(\(df) df[-1, ]) %>% # Remove burst's first obs
+    mutate(
+        z.post = apply(fit5$weights, 1, which.max),
         D.x = cos(x),
         D.y = sin(x)
     )
@@ -192,7 +210,10 @@ arrows.ts <- function(dat, tburst, n) {
 }
 
 # --- Examples ---
-circ.hist(datDgn1)
-arrows.ts(datDgn1, 5, 50)
-path.chart(datDgn1, 5, 50)
-time.series(datDgn1, 5, 50)
+circ.hist(datDgn5)
+arrows.ts(datDgn5, 5, 50)
+path.chart(datDgn5, 5, 50)
+time.series(datDgn5, 5, 50)
+
+# --- ARI ---
+mclust::adjustedRandIndex(datDgn5$z, datDgn5$z.post)

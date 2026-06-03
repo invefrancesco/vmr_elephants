@@ -91,7 +91,7 @@ Q <- function(x.t, lag, wpar, w, K, h) {
 #   MAIN FUNCTION
 # --------------------------------------------------------------------------- #
 
-cmar <- function(x, burst, K, h, tol = 1e-4, maxit = 100) {
+cmar <- function(x, burst, K, h, tol = 1e-4, maxit = 500) {
   # Init data
   dat <- get.dat(x, burst, h)
   x.t <- dat$x.t
@@ -172,6 +172,7 @@ cmar <- function(x, burst, K, h, tol = 1e-4, maxit = 100) {
     params = zzz, # Parameters
     llk = l.hat, # Log-likelihood
     iter = it - 1, # # of iterations
+    converged = converged, # True if converged
     trace = l[2:it], # Log-likelihood trace
     weights = w, # Final weights
     criteria = list(
@@ -186,7 +187,7 @@ cmar <- function(x, burst, K, h, tol = 1e-4, maxit = 100) {
   obj
 }
 
-cmar.ms <- function(x, burst, K, h, tol = 1e-4, maxit = 100, starts = 5) {
+cmar.ms <- function(x, burst, K, h, tol = 1e-4, maxit = 500, starts = 5) {
   fit <- list()
   for (i in 1:starts) {
     foo <- try(
