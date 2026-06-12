@@ -162,6 +162,12 @@ cmar <- function(x, burst, K, h, tol = 1e-4, maxit = 500) {
     if (abs(l[it] - l[it - 1]) < tol) converged <- TRUE
   }
 
+  if (!converged) {
+    warning(sprintf(
+      "The EM algorithm failed to converge within %d iterations (Maximum iterations reached).", maxit
+    ))
+  }
+
   # --- Output ---
   n.obs <- length(x.t)
   # K (mu) + K (kappa) + h*K (ar) + (K-1) (prob)
@@ -190,6 +196,8 @@ cmar <- function(x, burst, K, h, tol = 1e-4, maxit = 500) {
 cmar.ms <- function(x, burst, K, h, tol = 1e-4, maxit = 500, starts = 5) {
   fit <- list()
   for (i in 1:starts) {
+    cat(sprintf("\n--- START: %d/%d ---\n", i, starts))
+
     foo <- try(
       cmar(x, burst, K = K, h = h, tol = tol, maxit = maxit),
       silent = TRUE
