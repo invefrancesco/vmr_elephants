@@ -2,7 +2,8 @@ pacman::p_load(
   circular,
   tidyverse,
   sf,
-  patchwork
+  patchwork,
+  knitr
 )
 # --------------------------------------------------------------------------- #
 #   CHARTS SIM
@@ -213,8 +214,8 @@ arrows.ts <- function(dat, tburst, n) {
 }
 
 # --- Examples ---
-load("data/sim2.RData")
-load("data/fit2.RData")
+load("data/sim6.RData")
+load("data/fit6.RData")
 
 # --- Data preparation ---
 dat <- dat %>%
@@ -230,13 +231,32 @@ dat <- dat %>%
 mclust::adjustedRandIndex(dat$z, dat$z.post)
 
 # Coef table ----
-fit$params
-mod
+bind_rows(
+  tibble(
+    state = 1:mod$K,
+    type = "Real",
+    mu = mod$mu,
+    kappa = mod$kappa,
+    arcoef = as.numeric(mod$arcoef[1, ]), # (h = 1)
+    prob = mod$prob
+  ),
+  tibble(
+    state = seq_along(fit$params$mu),
+    type = "Est",
+    mu = fit$params$mu,
+    kappa = fit$params$kappa,
+    arcoef = as.numeric(fit$params$arcoef[1, ]),
+    prob = fit$params$prob
+  )
+) %>%
+  arrange(state, type) %>%
+  knitr::kable(
+    align = "c",
+    digits = 3
+  )
 
 # Vusal ----
 circ.hist(dat)
 arrows.ts(datDgn5, 5, 50)
 path.chart(datDgn5, 5, 50)
 time.series(datDgn5, 5, 50)
-
-# --- ARI ---
