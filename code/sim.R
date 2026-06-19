@@ -6,10 +6,10 @@ args <- commandArgs(trailingOnly = TRUE)
 pacman::p_load(
   circular,
   tidyverse,
-  sf
+  sf,
+  doParallel,
+  foreach
 )
-# source("code/fun_estimation.R")
-source("code/fun_simulation.R")
 
 # --------------------------------------------------------------------------- #
 #   TRIAL PARAMETERS AND SIMULATION
@@ -29,6 +29,7 @@ parse_num <- function(x) {
   unname(sapply(x, function(val) eval(parse(text = val))))
 }
 
+nSim <- 20
 h <- 1
 K <- parse_num(args[1])
 mu <- parse_num(args[2:(K + 1)])
@@ -45,13 +46,28 @@ mod <- list(K = K, h = h, mu = mu, kappa = kappa, arcoef = arcoef, prob = prob)
 print(mod)
 
 # Simulate data ----
-set.seed(1234 + parse_num(args[length(args)]))
-dat <- sim.data(dat, mod, id, burst)
-summary(dat)
-
-# Estimation ----
-# fit <- cmar.ms(dat$x, dat$burst, K, h)
+seeds <- sample(1:10000, size = nSim, replace = FALSE)
+ncores <- 3
+cl <- makeCluster(ncores)
+registerDoParallel(cl)
+init <- Sys.time()
+simlist <- foreach(
+  i = 1:nSim,
+  .export = c(".GlobalEnv"),
+  .inorder = FALSE,
+  .packages = c(
+    "circular",
+    "tidyverse",
+    "sf"
+  )
+) %dopar% {
+  source("code/fun_simulation.R")
+  set.seed(seeds[i])
+  sim.data(dat, mod, id, burst)
+}
+stopCluster(cl)
+print(Sys.time() - init)
 
 # Save ----
-name <- paste0("data/sim", args[length(args)], ".RData")
-save(mod, dat, file = name)
+name <- paste0("data/simList_K", K, "n", args[length(args)], ".RData")
+save.image(file = name)

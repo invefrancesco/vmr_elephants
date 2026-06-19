@@ -59,7 +59,7 @@ circ.hist.sim(dat)
 path.chart.sim(dat, 1, 50)
 
 # --------------------------------------------------------------------------- #
-#   CHARTS FIT
+#   CHARTS FIT SIM
 # --------------------------------------------------------------------------- #
 # --- Functions ---
 # Circular histogram
@@ -214,13 +214,14 @@ arrows.ts <- function(dat, tburst, n) {
 }
 
 # --- Examples ---
-load("data/sim6.RData")
-load("data/fit6.RData")
+load("data/sim5.RData")
+load("data/fit5.RData")
 
 # --- Data preparation ---
 dat <- dat %>%
-  group_split(burst) %>%
-  map_dfr(\(df) df[-1, ]) %>%
+  group_by(id, burst) %>%
+  slice(-1) %>%
+  ungroup %>% 
   mutate(
     z.post = apply(fit$weights, 1, which.max),
     D.x = cos(x),
@@ -257,6 +258,6 @@ bind_rows(
 
 # Vusal ----
 circ.hist(dat)
-arrows.ts(datDgn5, 5, 50)
-path.chart(datDgn5, 5, 50)
-time.series(datDgn5, 5, 50)
+arrows.ts(dat, 5, 50)
+path.chart(dat, 5, 50)
+time.series(dat, 5, 50)
