@@ -45,6 +45,14 @@ prob <- prob / sum(prob)
 mod <- list(K = K, h = h, mu = mu, kappa = kappa, arcoef = arcoef, prob = prob)
 print(mod)
 
+mod <- list(
+  K = K, h = h,
+  mu = fitlist[[1]]$params$mu,
+  kappa = fitlist[[1]]$params$kappa,
+  arcoef = fitlist[[1]]$params$arcoef,
+  prob = fitlist[[1]]$params$prob
+)
+
 # Simulate data ----
 seeds <- sample(1:10000, size = nSim, replace = FALSE)
 ncores <- 3

@@ -55,7 +55,7 @@ path.chart.sim <- function(dat, tburst, n) {
 
 # --- Examples ---
 load("data/sim6.RData")
-circ.hist.sim(dat)
+circ.hist.sim(simlist[[1]])
 path.chart.sim(dat, 1, 50)
 
 # --------------------------------------------------------------------------- #
@@ -63,7 +63,13 @@ path.chart.sim(dat, 1, 50)
 # --------------------------------------------------------------------------- #
 # --- Functions ---
 # Circular histogram
-circ.hist <- function(dat) {
+circ.hist <- function(sim, fit) {
+  dat <- sim %>%
+    group_by(id, burst) %>%
+    slice(-(1:mod$h)) %>%
+    ungroup() %>%
+    mutate(z.post = apply(fit$weights, 1, which.max))
+  
   p1 <- ggplot(dat, aes(x = x, fill = factor(z))) +
     geom_histogram(
       breaks = seq(0, 2 * pi, length.out = 31),
@@ -213,51 +219,189 @@ arrows.ts <- function(dat, tburst, n) {
     labs(color = "Comp")
 }
 
-# --- Examples ---
-load("data/sim5.RData")
-load("data/fit5.RData")
+# --------------------------------------------------------------------------- #
+#   MODEL SELECTION
+# --------------------------------------------------------------------------- #
+load("data/simList_K2n1.RData")
 
-# --- Data preparation ---
-dat <- dat %>%
-  group_by(id, burst) %>%
-  slice(-1) %>%
-  ungroup %>% 
-  mutate(
-    z.post = apply(fit$weights, 1, which.max),
-    D.x = cos(x),
-    D.y = sin(x)
+# BIC ----
+n <- length(fitlist)
+("data/fit_K2Kest3n1.RData")
+indx <- which(sapply(1:n, function(i) fitlist[[i]]$converged))
+
+load("data/fit_K2Kest2n1.RData")
+bicK2 <- sapply(indx, function(i) fitlist[[i]]$criteria$bic)
+
+load("data/fit_K2Kest3n1.RData")
+bicK3 <- sapply(indx, function(i) fitlist[[i]]$criteria$bic)
+
+BIC <- apply(cbind(bicK2, bicK3), 1, which.min) + 1
+
+# Entropy ----
+load("data/fit_K2Kest2n1.RData")
+eK2 <- sapply(
+  indx,
+  function(i) -sum(fitlist[[i]]$weights * log(fitlist[[1]]$weights + 1e-15))
+)
+
+load("data/fit_K2Kest3n1.RData")
+eK3 <- sapply(
+  indx,
+  function(i) -sum(fitlist[[i]]$weights * log(fitlist[[1]]$weights + 1e-15))
+)
+# ICL ----
+iclK2 <- bicK2 + 2 * eK2
+iclK3 <- bicK3 + 2 * eK3
+ICL <- apply(cbind(iclK2, iclK3), 1, which.min) + 1
+
+sum(BIC == 2) / length(indx)
+sum(ICL == 2) / length(indx)
+
+# --------------------------------------------------------------------------- #
+#   SIMULATION RESULTS
+# --------------------------------------------------------------------------- #
+get.res.row <- function(i, fitlist, simlist, mod) {
+  fit <- fitlist[[i]]
+  sim <- simlist[[i]]
+
+  # Label switching
+  distmat <- outer(mod$mu, fit$params$mu, function(x, y) 1 - cos(x - y))
+  idx <- integer()
+  for (j in seq_len(mod$K)) { # get index order
+    idx[j] <- which.min(distmat[j, ])
+    distmat[, idx[j]] <- Inf
+  }
+
+  # order parameters and weights
+  mu <- fit$params$mu[idx]
+  kappa <- fit$params$kappa[idx]
+  arcoef <- fit$params$arcoef[, idx, drop = FALSE]
+  prob <- fit$params$prob[idx]
+  w <- fit$weights[, idx]
+
+  # ARI
+  sim <- sim %>%
+    group_by(id, burst) %>%
+    slice(-(1:mod$h)) %>%
+    ungroup() %>%
+    mutate(z.post = apply(w, 1, which.max))
+
+  ari <- mclust::adjustedRandIndex(sim$z, sim$z.post)
+
+  # Error
+  muErr <- (mu - mod$mu + pi) %% (2 * pi) - pi
+  kappaErr <- kappa - mod$kappa
+  arcoefErr <- arcoef - mod$arcoef
+  probErr <- prob - mod$prob
+
+  # Dataset row
+  resRow <- tibble(
+    run = i,
+    converged = TRUE,
+    ari = ari
   )
 
-# ARI ----
-mclust::adjustedRandIndex(dat$z, dat$z.post)
+  for (k in seq_len(mod$K)) {
+    resRow[[paste0("muEst_", k)]] <- mu[k]
+    resRow[[paste0("muErr_", k)]] <- muErr[k]
 
-# Coef table ----
-bind_rows(
-  tibble(
+    resRow[[paste0("kappaEst_", k)]] <- kappa[k]
+    resRow[[paste0("kappaErr_", k)]] <- kappaErr[k]
+
+    resRow[[paste0("arcoefEst_", k)]] <- arcoef[1, k]
+    resRow[[paste0("arcoefErr_", k)]] <- arcoefErr[k]
+
+    resRow[[paste0("probEst_", k)]] <- prob[k]
+    resRow[[paste0("probErr_", k)]] <- probErr[k]
+  }
+
+  resRow
+}
+
+res.summary <- function(res, mod) {
+  ariMean <- mean(res$ari, na.rm = TRUE)
+  ariSD <- sd(res$ari, na.rm = TRUE)
+
+  muMean <- numeric(mod$K)
+  muSD <- numeric(mod$K)
+  muBias <- numeric(mod$K)
+  muRMSE <- numeric(mod$K)
+
+  kappaMean <- numeric(mod$K)
+  kappaSD <- numeric(mod$K)
+  kappaBias <- numeric(mod$K)
+  kappaRMSE <- numeric(mod$K)
+
+  arcoefMean <- numeric(mod$K)
+  arcoefSD <- numeric(mod$K)
+  arcoefBias <- numeric(mod$K)
+  arcoefRMSE <- numeric(mod$K)
+
+  probMean <- numeric(mod$K)
+  probSD <- numeric(mod$K)
+  probBias <- numeric(mod$K)
+  probRMSE <- numeric(mod$K)
+
+  for (k in 1:mod$K) {
+    # --- mu ---
+    colEst <- paste0("muEst_", k)
+    colErr <- paste0("muErr_", k)
+
+    suppressWarnings({
+      muMean[k] <- as.numeric(circular::mean.circular(res[[colEst]]))
+      muSD[k] <- as.numeric(circular::angular.deviation(res[[colEst]]))
+    })
+    muBias[k] <- mean(res[[colErr]], na.rm = TRUE)
+    muRMSE[k] <- sqrt(mean(res[[colErr]]^2, na.rm = TRUE))
+
+    # --- kappa ---
+    colEst <- paste0("kappaEst_", k)
+    colErr <- paste0("kappaErr_", k)
+
+    kappaMean[k] <- mean(res[[colEst]], na.rm = TRUE)
+    kappaSD[k] <- sd(res[[colEst]], na.rm = TRUE)
+    kappaBias[k] <- mean(res[[colErr]], na.rm = TRUE)
+    kappaRMSE[k] <- sqrt(mean(res[[colErr]]^2, na.rm = TRUE))
+
+    # --- arcoef ---
+    colEst <- paste0("arcoefEst_", k)
+    colErr <- paste0("arcoefErr_", k)
+
+    arcoefMean[k] <- mean(res[[colEst]], na.rm = TRUE)
+    arcoefSD[k] <- sd(res[[colEst]], na.rm = TRUE)
+    arcoefBias[k] <- mean(res[[colErr]], na.rm = TRUE)
+    arcoefRMSE[k] <- sqrt(mean(res[[colErr]]^2, na.rm = TRUE))
+
+    # --- prob ---
+    colEst <- paste0("probEst_", k)
+    colErr <- paste0("probErr_", k)
+
+    probMean[k] <- mean(res[[colEst]], na.rm = TRUE)
+    probSD[k] <- sd(res[[colEst]], na.rm = TRUE)
+    probBias[k] <- mean(res[[colErr]], na.rm = TRUE)
+    probRMSE[k] <- sqrt(mean(res[[colErr]]^2, na.rm = TRUE))
+  }
+
+  out <- tibble::tibble(
     state = 1:mod$K,
-    type = "Real",
-    mu = mod$mu,
-    kappa = mod$kappa,
-    arcoef = as.numeric(mod$arcoef[1, ]), # (h = 1)
-    prob = mod$prob
-  ),
-  tibble(
-    state = seq_along(fit$params$mu),
-    type = "Est",
-    mu = fit$params$mu,
-    kappa = fit$params$kappa,
-    arcoef = as.numeric(fit$params$arcoef[1, ]),
-    prob = fit$params$prob
-  )
-) %>%
-  arrange(state, type) %>%
-  knitr::kable(
-    align = "c",
-    digits = 3
+    muMean = muMean, muSD = muSD, muBias = muBias, muRMSE = muRMSE,
+    kappaMean = kappaMean, kappaSD = kappaSD, kappaBias = kappaBias, kappaRMSE = kappaRMSE,
+    arcoefMean = arcoefMean, arcoefSD = arcoefSD, arcoefBias = arcoefBias, arcoefRMSE = arcoefRMSE,
+    probMean = probMean, probBias = probBias, probRMSE = probRMSE
   )
 
-# Vusal ----
-circ.hist(dat)
-arrows.ts(dat, 5, 50)
-path.chart(dat, 5, 50)
-time.series(dat, 5, 50)
+  attr(out, "ARI_Mean") <- ariMean
+  attr(out, "ARI_SD") <- ariSD
+
+  return(out)
+}
+
+load("data/simList_K2n1.RData")
+load("data/fit_K2Kest2n1.RData")
+
+res <- map_dfr(1:20, function(i) {
+  get.res.row(i = i, fitlist = fitlist, simlist = simlist, mod = mod)
+})
+
+res.summary(res, mod)
+select(res, muEst_1, muEst_2)

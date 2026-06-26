@@ -1,0 +1,40 @@
+Core 7593: Starting fit for dataset 3 of 20
+Core 7594: Starting fit for dataset 1 of 20
+Core 7595: Starting fit for dataset 2 of 20
+Core 7593: Completed dataset 3!
+Core 7593: Starting fit for dataset 4 of 20
+Core 7595: Completed dataset 2!
+Core 7595: Starting fit for dataset 5 of 20
+Core 7594: Completed dataset 1!
+Core 7594: Starting fit for dataset 6 of 20
+Core 7593: Completed dataset 4!
+Core 7593: Starting fit for dataset 7 of 20
+Core 7595: Completed dataset 5!
+Core 7595: Starting fit for dataset 8 of 20
+Core 7594: Completed dataset 6!
+Core 7594: Starting fit for dataset 9 of 20
+Core 7593: Completed dataset 7!
+Core 7593: Starting fit for dataset 10 of 20
+Core 7595: Completed dataset 8!
+Core 7595: Starting fit for dataset 11 of 20
+Core 7594: Completed dataset 9!
+Core 7594: Starting fit for dataset 12 of 20
+Core 7593: Completed dataset 10!
+Core 7593: Starting fit for dataset 13 of 20
+Core 7595: Completed dataset 11!
+Core 7595: Starting fit for dataset 14 of 20
+Core 7594: Completed dataset 12!
+Core 7594: Starting fit for dataset 15 of 20
+Core 7593: Completed dataset 13!
+Core 7593: Starting fit for dataset 16 of 20
+Core 7594: Completed dataset 15!
+Core 7594: Starting fit for dataset 17 of 20
+Core 7595: Completed dataset 14!
+Core 7595: Starting fit for dataset 18 of 20
+Core 7593: Completed dataset 16!
+Core 7593: Starting fit for dataset 19 of 20
+Core 7594: Completed dataset 17!
+Core 7594: Starting fit for dataset 20 of 20
+Core 7595: Completed dataset 18!
+Core 7593: Completed dataset 19!
+Core 7594: Completed dataset 20!

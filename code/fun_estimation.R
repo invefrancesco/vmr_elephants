@@ -37,9 +37,10 @@ n2w <- function(mu, kappa, arcoef) c(mu, log(kappa), arcoef)
 w2n <- function(wpar, K, h) {
   mu <- wpar[1:K] %% (2 * pi)
   kappa <- exp(wpar[(K + 1):(2 * K)])
-  arcoef <- matrix(wpar[(2 * K + 1):(2 * K + (h * K))], nrow = h, ncol = K)
+  arcoef <- matrix(tanh(wpar[(2 * K + 1):(2 * K + (h * K))]), nrow = h, ncol = K)
   list(mu = mu, kappa = kappa, arcoef = arcoef)
 }
+
 # --------------------------------------------------------------------------- #
 #   LIKELIHOOD FUNCTION
 # --------------------------------------------------------------------------- #
@@ -184,7 +185,8 @@ cmar <- function(x, burst, K, h, tol = 1e-4, maxit = 500) {
     criteria = list(
       aic = -2 * l.hat + 2 * n.par,
       bic = -2 * l.hat + log(n.obs) * n.par,
-      npar = n.par
+      npar = n.par,
+      entropy = -sum(w * log(w + 1e-15))
     ),
     call = list(K = K, h = h, tol = tol)
   )
