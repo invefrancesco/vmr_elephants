@@ -18,18 +18,25 @@ pacman::p_load(
 # Design from real data ----
 load("data/elephants.RData")
 
+set.seed(1234)
 dat <- data %>%
   arrange(id, burst_, t2_) %>%
   mutate(id = consecutive_id(id)) %>%
   mutate(burst = consecutive_id(burst_), .by = id) %>%
-  select(id, burst)
+  select(id, burst) %>%
+  group_by(id) %>%
+  mutate(
+    env = rnorm(n(), 0, 1),
+    sex = sample(0:1, 1, replace = TRUE)
+  ) %>%
+  ungroup()
 
 # Trial parameters ----
 parse_num <- function(x) {
   unname(sapply(x, function(val) eval(parse(text = val))))
 }
 
-nSim <- 20
+nSim <- 3
 h <- 1
 K <- parse_num(args[1])
 mu <- parse_num(args[2:(K + 1)])
@@ -38,20 +45,41 @@ arcoef <- matrix(
   parse_num(args[(2 * K + 2):(2 * K + h * K + 1)]),
   nrow = h, ncol = K
 )
-prob <- parse_num(args[(2 * K + h * K + 2):(3 * K + h * K + 1)])
-prob <- prob / sum(prob)
+
+if (K == 2) {
+  beta.array <- matrix(
+    c(
+      .2, # Intercept: State 1 (Explore) is less likely
+      -.8, # Env: Higher env more explore
+      -.2 # Sex
+    ),
+    nrow = 1, ncol = 3, byrow = TRUE
+  )
+}
+if (K == 3) {
+  beta.array <- matrix(c(
+    # Int, Env, Sex
+    .2, .5, -.05, # 2 vs 1: positive env, negative sex
+    .3, -.2, .8 # 3 vs 1: negative env, positive sex
+  ), nrow = 2, ncol = 3, byrow = TRUE)
+}
+if (K == 4) {
+  beta.array <- matrix(c(
+    # Int, Env, Sex
+    .5, .5, .01, # State 2
+    .1, .1, -.8, # State 3
+    -1, -.8, 0.5 # State 3
+  ), nrow = 3, ncol = 3, byrow = TRUE)
+}
 
 # Define the model ----
-mod <- list(K = K, h = h, mu = mu, kappa = kappa, arcoef = arcoef, prob = prob)
-print(mod)
-
 mod <- list(
   K = K, h = h,
-  mu = fitlist[[1]]$params$mu,
-  kappa = fitlist[[1]]$params$kappa,
-  arcoef = fitlist[[1]]$params$arcoef,
-  prob = fitlist[[1]]$params$prob
+  mu = mu, kappa = kappa,
+  arcoef = arcoef,
+  beta.array = beta.array
 )
+print(mod)
 
 # Simulate data ----
 seeds <- sample(1:10000, size = nSim, replace = FALSE)
@@ -71,7 +99,11 @@ simlist <- foreach(
 ) %dopar% {
   source("code/fun_simulation.R")
   set.seed(seeds[i])
-  sim.data(dat, mod, id, burst)
+  sim.data(
+    dat, mod,
+    formula = ~ env + sex,
+    id, burst
+  )
 }
 stopCluster(cl)
 print(Sys.time() - init)
