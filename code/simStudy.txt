@@ -1,10 +1,64 @@
-Rscript code/sim.R 2 0 '3/4*pi' 6 8 0.5 -0.5 0.5 0.5 1
-Rscript code/sim.R 2 0 pi/2 8 10 0.3 0.3 0.6 0.4 2
-Rscript code/sim.R 3 0 '3/4*pi' '5*pi/4' 6 8 7 0.4 0.3 -0.3 0.4 0.3 0.3 3
-Rscript code/sim.R 3 0 pi/2 pi 10 9.5 9 0.4 0.3 0.3 0.5 0.2 0.3 4
-Rscript code/sim.R 4 0 pi/2 pi '3*pi/2' 8 6 7 9 0.2 -0.2 0.2 -0.2 0.25 0.25 0.25 0.25 5
-Rscript code/sim.R 4 0 pi/4 '3/4*pi' '3*pi/2' 10 9 9.5 8.5 0.1 0.1 0.1 0.1 0.2 0.2 0.2 0.4 6
+# sim
+
+Rscript code/sim.R 2 0 '3/4*pi' 6 8 0.5 -0.5 1
+Rscript code/sim.R 2 0 pi/2 8 10 0.3 0.3 2
+Rscript code/sim.R 3 0 '3/4*pi' '5*pi/4' 6 8 7 0.4 0.3 -0.3 3
+Rscript code/sim.R 3 0 pi/2 pi 10 9.5 9 0.4 0.3 0.3 4
+Rscript code/sim.R 4 0 pi/2 pi '3*pi/2' 8 6 7 9 0.2 -0.2 0.2 -0.2 5
+Rscript code/sim.R 4 0 pi/4 '3/4*pi' '3*pi/2' 10 9 9.5 8.5 0.1 0.1 0.1 0.1 6
+
+#-----------------------------------------------------------------------------#
+# fit
 
 Rscript code/fit.R "data/simList_K2n1.RData" 2 2 1
 Rscript code/fit.R "data/simList_K2n1.RData" 2 3 1
 Rscript code/fit.R "data/simList_K2n1.RData" 2 4 1
+
+Rscript code/fit.R "data/simList_K2n2.RData" 2 2 2
+Rscript code/fit.R "data/simList_K2n2.RData" 2 3 2
+Rscript code/fit.R "data/simList_K2n2.RData" 2 4 2
+
+Rscript code/fit.R "data/simList_K3n3.RData" 3 2 3
+Rscript code/fit.R "data/simList_K3n3.RData" 3 3 3
+Rscript code/fit.R "data/simList_K3n3.RData" 3 4 3
+
+Rscript code/fit.R "data/simList_K3n4.RData" 3 2 4
+Rscript code/fit.R "data/simList_K3n4.RData" 3 3 4
+Rscript code/fit.R "data/simList_K3n4.RData" 3 4 4
+
+Rscript code/fit.R "data/simList_K4n5.RData" 4 2 5
+Rscript code/fit.R "data/simList_K4n5.RData" 4 3 5
+Rscript code/fit.R "data/simList_K4n5.RData" 4 4 5
+
+Rscript code/fit.R "data/simList_K4n6.RData" 4 2 6
+Rscript code/fit.R "data/simList_K4n6.RData" 4 3 6
+Rscript code/fit.R "data/simList_K4n6.RData" 4 4 6
+
+#-----------------------------------------------------------------------------#
+
+# Tempi simulazioni (nSim = 4 ncore = 4)
+repliche dataset: 1min
+
+K2Kest2 Time difference of 2.192825 mins
+K2Kest3 Time difference of 1.628983 hours
+K2Kest4 
+
+K2Kest2 Time difference of 4.434449 mins
+K2Kest3 Time difference of 37.29077 mins
+K2Kest4 Time difference of 8.699764 hours
+
+K3Kest2 Time difference of 27.87789 secs
+K3Kest3 Time difference of 12.87872 mins
+K3Kest4 Time difference of 1.350216 hours
+
+K3Kest2 Time difference of 2.16525 mins
+K3Kest3 Time difference of 16.86168 mins
+K3Kest4 Time difference of 2.095189 hours
+
+K4Kest2 Time difference of 1.86891 mins
+K4Kest3 Time difference of 18.11366 mins
+K4Kest4 Time difference of 23.40384 mins
+
+K4Kest2 Time difference of 1.851124 mins
+K4Kest3 Time difference of 18.08197 mins
+K4Kest4 Time difference of 23.6224 mins

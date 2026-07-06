@@ -5,7 +5,6 @@ args2 <- commandArgs(trailingOnly = TRUE)
 pacman::p_load(
   circular,
   tidyverse,
-  sf,
   doParallel,
   foreach
 )
@@ -21,7 +20,7 @@ n <- as.numeric(args2[4])
 h <- 1
 
 # Set up parallel backend
-ncores <- 3
+ncores <- 4
 cl <- makeCluster(ncores)
 registerDoParallel(cl)
 
@@ -53,10 +52,17 @@ fitlist <- foreach(
 
   # Prepare the dataset by creating a unique global burst ID
   dat <- simlist[[i]] %>% mutate(burst = paste0("id", id, "burst", burst))
+  formula <- ~ env + sex
 
   # Fit the model
   set.seed(1234)
-  fit <- cmar.ms(dat$x, dat$burst, Kest, h)
+  fit <- cmar.ms(
+    y = dat$y,
+    burst = dat$burst,
+    formula = formula,
+    dat = dat,
+    K = Kest, h = h
+  )
 
   cat(sprintf("Core %d: Completed dataset %d!\n", Sys.getpid(), i),
     file = ".log.txt", append = TRUE
@@ -76,24 +82,3 @@ if (length(tmp) > 0) {
 
 # Save the final results
 save(fitlist, file = paste0("data/fit_K", K, "Kest", Kest, "n", n, ".RData"))
-
-###############################################################################
-# REAL DATA
-###############################################################################
-#
-# load("data/elephants.RData")
-#
-# dat <- data %>%
-#   mutate(
-#     burst = paste0("id", id, "burst", burst_),
-#     x = ta_ %% (2 * pi)
-#   ) %>%
-#   group_by(id, burst_) %>%
-#   slice(-1) %>%
-#   ungroup()
-#
-# h <- 1
-# fitK2 <- cmar.ms(dat$ta_, dat$burst, 2, h)
-# fitK3 <- cmar.ms(dat$ta_, dat$burst, 3, h)
-# fitK4 <- cmar.ms(dat$ta_, dat$burst, 4, h)
-# save(fitK2, file = "data/fitK2.RData")

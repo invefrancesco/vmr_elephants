@@ -86,10 +86,12 @@ sim.data <- function(dat, mod, formula, ...) {
 
   dplyr::reframe(dat,
     {
+      x <- if (!is.null(formula)) xmat else NULL
+
       bind_cols(
-        pick(everything()),
+        pick(!any_of("xmat")),
         suppressWarnings(
-          dplyr::as_tibble(sim.burst(n = n(), mod = mod, x = xmat))
+          dplyr::as_tibble(sim.burst(n = n(), mod = mod, x = x))
         )
       )
     },

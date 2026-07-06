@@ -19,16 +19,13 @@ pacman::p_load(
 load("data/elephants.RData")
 
 set.seed(1234)
-dat <- data %>%
-  arrange(id, burst_, t2_) %>%
-  mutate(id = consecutive_id(id)) %>%
-  mutate(burst = consecutive_id(burst_), .by = id) %>%
-  select(id, burst) %>%
-  group_by(id) %>%
-  mutate(
-    env = rnorm(n(), 0, 1),
-    sex = sample(0:1, 1, replace = TRUE)
-  ) %>%
+dat <- tibble(
+  id = rep(1:5, each = 1000),
+  burst = rep(1:25, each = 200),
+  env = rnorm(5000, 0, 1)
+) %>% 
+  group_by(id) %>% 
+  mutate(sex = sample(0:1, 1, replace = TRUE)) %>% 
   ungroup()
 
 # Trial parameters ----
@@ -36,7 +33,7 @@ parse_num <- function(x) {
   unname(sapply(x, function(val) eval(parse(text = val))))
 }
 
-nSim <- 3
+nSim <- 4
 h <- 1
 K <- parse_num(args[1])
 mu <- parse_num(args[2:(K + 1)])
@@ -83,7 +80,7 @@ print(mod)
 
 # Simulate data ----
 seeds <- sample(1:10000, size = nSim, replace = FALSE)
-ncores <- 3
+ncores <- 4
 cl <- makeCluster(ncores)
 registerDoParallel(cl)
 init <- Sys.time()

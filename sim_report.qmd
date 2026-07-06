@@ -1,0 +1,79 @@
+---
+title: "Risultati Simulazioni in locale"
+author: "Francesco"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+## Note 
+* Per ogni scenario ho simulato $n = 4$ repliche. Riporto i risultati in media - che comunque sono buoni - ma sicuramente al crescere di $n$ dovrebbero migliorare.
+* Negli scenari con $K=2$ l'algoritmo fa fatica a convergere per $K > 2$: i tempi della simulazione si allungano e non si arriva a convergenza con 500 iterazioni.
+
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+
+pacman::p_load(
+    circular,
+    tidyverse,
+    sf,
+    patchwork,
+    knitr
+)
+source("code/fun_diagnostics.R")
+formula <- ~ env + sex
+```
+
+```{r generate-report, results='asis'}
+# Loop
+for (scen in 1:6) {
+    # Map real K to scen
+    K <- dplyr::case_match(
+        scen,
+        1:2 ~ 2,
+        3:4 ~ 3,
+        5:6 ~ 4
+    )
+
+    # Print title
+    cat(sprintf("## Scenario %d (True K = %d)\n\n", scen, K))
+
+    # Model Selection table
+    cat("### Model Selection\n\n")
+    mod_sel <- mod.selection(K, scen) # Usa la versione aggiornata della funzione
+    print(knitr::kable(mod_sel, format = "markdown", align = "c"))
+    cat("\n\n")
+
+    # Par estimation table
+    cat("### Parameter Estimation\n\n")
+    source("code/fun_estimation.R")
+    load(paste0("data/simList_K", K, "n", scen, ".RData"))
+    load(paste0("data/fit_K", K, "Kest", K, "n", scen, ".RData"))
+
+    res <- purrr::map_dfr(1:4, function(i) {
+        get.res.row(i = i, fitlist = fitlist, simlist = simlist, mod = mod, formula = formula)
+    })
+
+    tab_params <- res.summary(res, mod)
+
+    print(knitr::kable(tab_params, format = "markdown", digits = 3, align = "c"))
+
+    # Metrics
+    cat(sprintf(
+        "\n**Metriche Globali:** ARI Medio = %.3f | Converged Runs = %d / 4\n\n",
+        attr(tab_params, "ARIMean"),
+        attr(tab_params, "Converged")
+    ))
+
+    cat("---\n\n")
+}
+```
+
+
+```{r}
+scen <- 6
+K <- 4
+
+circ.hist(simlist[[4]], fitlist[[4]], mod)
+```
