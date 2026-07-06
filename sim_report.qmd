@@ -2,7 +2,7 @@
 title: "Risultati Simulazioni in locale"
 author: "Francesco"
 date: "`r Sys.Date()`"
-output: gfm
+format: gfm
 ---
 
 ## Note 
