@@ -2,7 +2,7 @@
 title: "Risultati Simulazioni in locale"
 author: "Francesco"
 date: "`r Sys.Date()`"
-output: github_document
+output: gfm
 ---
 
 ## Note 
