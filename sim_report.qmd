@@ -8,6 +8,7 @@ output: github_document
 ## Note 
 * Per ogni scenario ho simulato $n = 4$ repliche. Riporto i risultati in media - che comunque sono buoni - ma sicuramente al crescere di $n$ dovrebbero migliorare.
 * Negli scenari con $K=2$ l'algoritmo fa fatica a convergere per $K > 2$: i tempi della simulazione si allungano e non si arriva a convergenza con 500 iterazioni.
+* Negli scenari con $K=4$ l'ARI è più basso.
 
 ---
 
