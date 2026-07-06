@@ -69,11 +69,3 @@ for (scen in 1:6) {
     cat("---\n\n")
 }
 ```
-
-
-```{r}
-scen <- 6
-K <- 4
-
-circ.hist(simlist[[4]], fitlist[[4]], mod)
-```

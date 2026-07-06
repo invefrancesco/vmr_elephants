@@ -275,7 +275,7 @@ mod.selection <- function(K, scenario) {
 # Parameter estimation ----
 get.res.row <- function(i, fitlist, simlist, mod, formula) {
   fit <- fitlist[[i]]
-  sim <- simlist[[i]] %>% mutate(burst = paste0("id", id, "burst", burst))
+  sim <- simlist[[i]]
 
   # Label switching
   distmat <- outer(mod$mu, fit$params$mu, function(x, y) 1 - cos(x - y))
@@ -304,7 +304,6 @@ get.res.row <- function(i, fitlist, simlist, mod, formula) {
 
   # ARI
   sim <- sim %>%
-    dplyr::arrange(burst, t) %>%
     dplyr::group_by(id, burst) %>%
     dplyr::slice(-(1:mod$h)) %>%
     dplyr::ungroup() %>%

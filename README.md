@@ -6,6 +6,3 @@ The files are organized as follows:
 * `fun_simulation.R` contains the functions for generating a sigle burst of angles.
 * `main.R` run a full workflow, including parameter setup, data simulation, model fitting, and results visualization
 * `charts.R`contains the visualization suite for the project
-
-#### Q
-[ ] "Brucio" 500 osservazioni restando nello stesso stato e poi genero le ultime dallo stato estratto con multinomial logit (?);
