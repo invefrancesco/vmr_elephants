@@ -40,11 +40,11 @@ fitlist <- foreach(
 ) %dopar% {
   # Log the start of the iteration to an external text file
   pid <- Sys.getpid()
-  logFile <- paste0(".log", pid, ".txt")
+  logFile <- paste0(".log/", pid, ".txt")
   sink(logFile, append = TRUE)
 
   cat(sprintf("Core %d: Starting fit for dataset %d of %d\n", Sys.getpid(), i, nSim),
-    file = ".log.txt", append = TRUE
+    file = ".log/log.txt", append = TRUE
   )
 
   # Source estimation functions
@@ -61,11 +61,12 @@ fitlist <- foreach(
     burst = dat$burst,
     formula = formula,
     dat = dat,
-    K = Kest, h = h
+    K = Kest, h = h,
+    maxit = 1000
   )
 
   cat(sprintf("Core %d: Completed dataset %d!\n", Sys.getpid(), i),
-    file = ".log.txt", append = TRUE
+    file = ".log/log.txt", append = TRUE
   )
 
   sink()
@@ -73,12 +74,6 @@ fitlist <- foreach(
 }
 stopCluster(cl)
 print(Sys.time() - init)
-
-# Remove temporary files
-tmp <- list.files(pattern = "^\\.log.*\\.txt$")
-if (length(tmp) > 0) {
-  file.remove(tmp)
-}
 
 # Save the final results
 save(fitlist, file = paste0("data/fit_K", K, "Kest", Kest, "n", n, ".RData"))

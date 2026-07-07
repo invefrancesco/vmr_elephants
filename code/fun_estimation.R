@@ -109,7 +109,7 @@ cmar <- function(y, burst, formula, dat, K, h, tol = 1e-4, maxit = 500, verbose 
   # Compute first step alpha and beta
   datmod <- data.frame(preds = I(preds), xmat)
   formulamod <- as.formula("preds ~ . - 1")
-  fit <- nnet::multinom(formulamod, data = datmod, trace = FALSE)
+  fit <- nnet::multinom(formulamod, data = datmod, trace = FALSE, maxit = 10000)
   betas <- coef(fit)
   preds <- predict(fit, type = "probs")
 
@@ -138,21 +138,21 @@ cmar <- function(y, burst, formula, dat, K, h, tol = 1e-4, maxit = 500, verbose 
     # --- M-step ---
     # Betas update
     datmod <- data.frame(preds = I(w), xmat)
-    fit <- nnet::multinom(formulamod, data = datmod, trace = FALSE)
+    fit <- nnet::multinom(formulamod, data = datmod, trace = FALSE, maxit = 1000)
     betas <- coef(fit)
     preds <- predict(fit, type = "probs")
 
     # Thetas update
     wpar <- n2w(zzz$mu, zzz$kappa, zzz$arcoef)
-    opt <- optim(
-      par = wpar,
-      fn = Q,
+    opt <- nlminb(
+      start = wpar,
+      objective = Q,
+      hessian = NULL,
       y.t = y.t,
       lag = lag,
       w = w,
       K = K, h = h,
-      method = "BFGS",
-      control = list(maxit = 10000)
+      control = list(eval.max = 10000, iter.max = 10000)
     )
 
     # --- Parameters update ---
