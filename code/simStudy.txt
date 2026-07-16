@@ -62,3 +62,27 @@ K4Kest4 Time difference of 23.40384 mins
 K4Kest2 Time difference of 1.851124 mins
 K4Kest3 Time difference of 18.08197 mins
 K4Kest4 Time difference of 23.6224 mins
+
+#-----------------------------------------------------------------------------#
+
+# Tempi simulazioni (nSim = 4 ncore = 4)
+
+Time difference of 42.64706 secs
+Time difference of 9.407718 hours
+Time difference of 8.611469 hours
+Time difference of 7.273578 mins
+Time difference of 5.454722 hours
+Time difference of 7.359757 hours
+Time difference of 1.329551 mins
+Time difference of 50.11197 mins
+Time difference of 4.717821 hours
+Time difference of 1.387711 mins
+Time difference of 43.89449 mins
+Time difference of 4.837073 hours
+Time difference of 4.375683 mins
+Time difference of 34.40716 mins
+Time difference of 55.0696 mins
+Time difference of 1.918118 mins
+Time difference of 32.64197 mins
+Time difference of 1.99168 hours
+
