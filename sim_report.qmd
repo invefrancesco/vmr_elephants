@@ -10,25 +10,26 @@ format: gfm
 * Per ogni scenario ho simulato 4 repliche. Per ogni replica ho stimato il modello. 
 * Nell'ultimo scenario ICL seleziona sempre tre stati
 
-# Tempi
-K2 Est 2: 42.64706 secs
-K2 Est 3: 9.407718 hours
-K2 Est 4: 8.611469 hours
-K2 Est 2: 7.273578 mins
-K2 Est 3: 5.454722 hours
-K2 Est 4: 7.359757 hours
-K 3 Est 3: 1.329551 mins
-K 3 Est 3: 50.11197 mins
-K 3 Est 4: 4.717821 hours
-K 3 Est 2: 1.387711 mins
-K 3 Est 3: 43.89449 mins
-K 3 Est 4: 4.837073 hours
-K 4 Est 2: 4.375683 mins
-K 4 Est 3: 34.40716 mins
-K 4 Est 4: 55.0696 mins
-K 4 Est 2: 1.918118 mins
-K 4 Est 3: 32.64197 mins
-K 4 Est 4: 1.99168 hours
+## Tempi
+
+* K2 Est 2: 42.64706 secs
+* K2 Est 3: 9.407718 hours
+* K2 Est 4: 8.611469 hours
+* K2 Est 2: 7.273578 mins
+* K2 Est 3: 5.454722 hours
+* K2 Est 4: 7.359757 hours
+* K 3 Est 3: 1.329551 mins
+* K 3 Est 3: 50.11197 mins
+* K 3 Est 4: 4.717821 hours
+* K 3 Est 2: 1.387711 mins
+* K 3 Est 3: 43.89449 mins
+* K 3 Est 4: 4.837073 hours
+* K 4 Est 2: 4.375683 mins
+* K 4 Est 3: 34.40716 mins
+* K 4 Est 4: 55.0696 mins
+* K 4 Est 2: 1.918118 mins
+* K 4 Est 3: 32.64197 mins
+* K 4 Est 4: 1.99168 hours
 
 ---
 
